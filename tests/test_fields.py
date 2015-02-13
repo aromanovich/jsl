@@ -16,22 +16,22 @@ class FieldMock(mock.MagicMock):
         return self.to_schema_asdw813s()
 
 
-def test_base_field():
-    f = fields.BaseField()
+def test_base_schema_field():
+    f = fields.BaseSchemaField()
     assert not f.required
     assert not f.default
     assert not f.enum
 
-    f = fields.BaseField(required=True)
+    f = fields.BaseSchemaField(required=True)
     assert f.required
 
-    f = fields.BaseField(default=123)
+    f = fields.BaseSchemaField(default=123)
     assert f.default == 123
 
-    f = fields.BaseField(default=lambda: 123)
+    f = fields.BaseSchemaField(default=lambda: 123)
     assert f.default == 123
 
-    f = fields.BaseField(title='Description')
+    f = fields.BaseSchemaField(title='Description')
     assert f.title == 'Description'
 
 

@@ -25,52 +25,10 @@ def _validate_regex(regex):
 
 class BaseField(object):
     """A base class for fields in a JSL :class:`.document.Document`.
-    Instances of this class are added to a document to define its properties.
-
-    :param required:
-        If the field is required, defaults to False.
-    :param default:
-        (optional) The default value for this field. May be a callable.
-    :param enum:
-        (optional) A list of valid choices. May be a callable.
-    :param title:
-        (optional) A short explanation about the purpose of the data described by this field.
-    :param description:
-        (optional) A detailed explanation about the purpose of the data described by this field.
+    Instances of this class may be added to a document to define its properties.
     """
-    def __init__(self, required=False, default=None, enum=None,
-                 title=None, description=None):
+    def __init__(self, required=False):
         self.required = required
-        self.title = title
-        self.description = description
-        self._enum = enum
-        self._default = default
-
-    @property
-    def enum(self):
-        enum = self._enum
-        if callable(self._enum):
-            enum = self._enum()
-        return enum
-
-    @property
-    def default(self):
-        default = self._default
-        if callable(self._default):
-            default = self._default()
-        return default
-
-    def _get_common_schema_fields(self):
-        rv = {}
-        if self.title is not None:
-            rv['title'] = self.title
-        if self.description is not None:
-            rv['description'] = self.description
-        if self.enum:
-            rv['enum'] = list(self.enum)
-        if self._default is not None:
-            rv['default'] = self.default
-        return rv
 
     def get_definitions_and_schema(self, definitions=None):
         """Returns a tuple of two elements.
@@ -102,7 +60,55 @@ class BaseField(object):
         yield self
 
 
-class StringField(BaseField):
+class BaseSchemaField(BaseField):
+    """A base class for fields that directly map to JSON Schema validator.
+
+    :param required:
+        If the field is required, defaults to False.
+    :param default:
+        (optional) The default value for this field. May be a callable.
+    :param enum:
+        (optional) A list of valid choices. May be a callable.
+    :param title:
+        (optional) A short explanation about the purpose of the data described by this field.
+    :param description:
+        (optional) A detailed explanation about the purpose of the data described by this field.
+    """
+    def __init__(self, default=None, enum=None, title=None, description=None, **kwargs):
+        self.title = title
+        self.description = description
+        self._enum = enum
+        self._default = default
+        super(BaseSchemaField, self).__init__(**kwargs)
+
+    @property
+    def enum(self):
+        enum = self._enum
+        if callable(self._enum):
+            enum = self._enum()
+        return enum
+
+    @property
+    def default(self):
+        default = self._default
+        if callable(self._default):
+            default = self._default()
+        return default
+
+    def _get_common_schema_fields(self):
+        rv = {}
+        if self.title is not None:
+            rv['title'] = self.title
+        if self.description is not None:
+            rv['description'] = self.description
+        if self.enum:
+            rv['enum'] = list(self.enum)
+        if self._default is not None:
+            rv['default'] = self.default
+        return rv
+
+
+class StringField(BaseSchemaField):
     """A string field.
 
     :param regex:
@@ -132,7 +138,7 @@ class StringField(BaseField):
         return {}, schema
 
 
-class BooleanField(BaseField):
+class BooleanField(BaseSchemaField):
     """A boolean field."""
     def get_definitions_and_schema(self, definitions=None):
         schema = {'type': 'boolean'}
@@ -172,7 +178,7 @@ class UriField(StringField):
         return definitions, schema
 
 
-class NumberField(BaseField):
+class NumberField(BaseSchemaField):
     """A number field.
 
     :param multiple_of:
@@ -218,7 +224,7 @@ class IntField(NumberField):
     _NUMBER_TYPE = 'integer'
 
 
-class ArrayField(BaseField):
+class ArrayField(BaseSchemaField):
     """An array field.
 
     :param items:
@@ -300,7 +306,7 @@ class ArrayField(BaseField):
                 yield field
 
 
-class DictField(BaseField):
+class DictField(BaseSchemaField):
     """A dictionary field.
 
     :param properties:
@@ -340,6 +346,7 @@ class DictField(BaseField):
         return nested_definitions, schema
 
     def get_definitions_and_schema(self, definitions=None):
+        # TODO required!1
         nested_definitions = {}
         schema = {'type': 'object'}
         schema.update(self._get_common_schema_fields())
@@ -390,10 +397,78 @@ class DictField(BaseField):
                 yield field_
 
 
+class BaseOfField(BaseSchemaField):
+    _KEYWORD = None
+
+    def __init__(self, fields, **kwargs):
+        self.fields = list(fields)
+        super(BaseOfField, self).__init__(**kwargs)
+
+    def get_definitions_and_schema(self, definitions=None):
+        nested_definitions = {}
+        one_of = []
+        for field in self.fields:
+            field_definitions, field_schema = field.get_definitions_and_schema(definitions=definitions)
+            nested_definitions.update(field_definitions)
+            one_of.append(field_schema)
+        schema = {self._KEYWORD: one_of}
+        schema.update(self._get_common_schema_fields())
+        return nested_definitions, schema
+
+    def walk(self, through_document_fields=False, visited_documents=()):
+        yield self
+        for field in self.fields:
+            for field_ in field.walk(through_document_fields=through_document_fields,
+                                     visited_documents=visited_documents):
+                yield field_
+
+
+class OneOfField(BaseOfField):
+    """
+    :param fields: a list of fields, exactly one of which describes the data
+    :type fields: list of :class:`BaseField`
+    """
+    _KEYWORD = 'oneOf'
+
+
+class AnyOfField(BaseOfField):
+    """
+    :param fields: a list of fields, at least one of which describes the data
+    :type fields: list of :class:`BaseField`
+    """
+    _KEYWORD = 'anyOf'
+
+
+class AllOfField(BaseOfField):
+    """
+    :param fields: a list of fields, all of which describe the data
+    :type fields: list of :class:`BaseField`
+    """
+    _KEYWORD = 'allOf'
+
+
+class NotField(BaseSchemaField):
+    """
+    :param field: a field to negate
+    :type field: :class:`BaseField`
+    """
+    def __init__(self, field, **kwargs):
+        self.field = field
+        super(NotField, self).__init__(**kwargs)
+
+    def get_definitions_and_schema(self, definitions=None):
+        field_definitions, field_schema = self.field.get_definitions_and_schema(
+            definitions=definitions)
+        schema = {'not': field_schema}
+        schema.update(self._get_common_schema_fields())
+        return field_definitions, schema
+
+
 class DocumentField(BaseField):
     """A reference to another (or the same) document.
 
-    :param document_cls: string or :class:`Document`
+    :param document_cls:
+        a string (dot-separated path to document class, i.e. 'app.resources.User') or :class:`Document`
     """
     def __init__(self, document_cls, **kwargs):
         self._document_cls = document_cls
@@ -433,54 +508,3 @@ class DocumentField(BaseField):
                     return registry.get_document(self._document_cls, module=self.owner_cls.__module__)
         else:
             return self._document_cls
-
-
-class OfField(BaseField):
-    _KEYWORD = None
-
-    def __init__(self, fields, **kwargs):
-        self.fields = list(fields)
-        super(OfField, self).__init__(**kwargs)
-
-    def get_definitions_and_schema(self, definitions=None):
-        nested_definitions = {}
-        one_of = []
-        for field in self.fields:
-            field_definitions, field_schema = field.get_definitions_and_schema(definitions=definitions)
-            nested_definitions.update(field_definitions)
-            one_of.append(field_schema)
-        schema = {self._KEYWORD: one_of}
-        schema.update(self._get_common_schema_fields())
-        return nested_definitions, schema
-
-    def walk(self, through_document_fields=False, visited_documents=()):
-        yield self
-        for field in self.fields:
-            for field_ in field.walk(through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
-                yield field_
-
-
-class OneOfField(OfField):
-    _KEYWORD = 'oneOf'
-
-
-class AnyOfField(OfField):
-    _KEYWORD = 'anyOf'
-
-
-class AllOfField(OfField):
-    _KEYWORD = 'allOf'
-
-
-class NotField(BaseField):
-    def __init__(self, field, **kwargs):
-        self.field = field
-        super(NotField, self).__init__(**kwargs)
-
-    def get_definitions_and_schema(self, definitions=None):
-        field_definitions, field_schema = self.field.get_definitions_and_schema(
-            definitions=definitions)
-        schema = {'not': field_schema}
-        schema.update(self._get_common_schema_fields())
-        return field_definitions, schema
