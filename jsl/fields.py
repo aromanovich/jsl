@@ -24,20 +24,34 @@ def _validate_regex(regex):
 
 
 class BaseField(object):
-    def __init__(self, required=False, default=None, choices=None,
+    """A base class for fields in a JSL :class:`.document.Document`.
+    Instances of this class are added to a document to define its properties.
+
+    :param required:
+        If the field is required, defaults to False.
+    :param default:
+        (optional) The default value for this field. May be a callable.
+    :param enum:
+        (optional) A list of valid choices. May be a callable.
+    :param title:
+        (optional) A short explanation about the purpose of the data described by this field.
+    :param description:
+        (optional) A detailed explanation about the purpose of the data described by this field.
+    """
+    def __init__(self, required=False, default=None, enum=None,
                  title=None, description=None):
         self.required = required
         self.title = title
         self.description = description
-        self._choices = choices
+        self._enum = enum
         self._default = default
 
     @property
-    def choices(self):
-        choices = self._choices
-        if callable(self._choices):
-            choices = self._choices()
-        return choices
+    def enum(self):
+        enum = self._enum
+        if callable(self._enum):
+            enum = self._enum()
+        return enum
 
     @property
     def default(self):
@@ -52,30 +66,56 @@ class BaseField(object):
             rv['title'] = self.title
         if self.description is not None:
             rv['description'] = self.description
-        if self.choices:
-            rv['enum'] = list(self.choices)
+        if self.enum:
+            rv['enum'] = list(self.enum)
         if self._default is not None:
             rv['default'] = self.default
         return rv
 
     def get_definitions_and_schema(self, definitions=None):
+        """Returns a tuple of two elements.
+
+        The second element is a JSON schema of the data described by this field,
+        and the first is a dictionary containing definitions that are referenced
+        from the field schema.
+
+        :arg definitions:
+            Overrides some of the nested :class:`DocumentField`s schemas.
+
+            If :class:`DocumentField`'s document definition id (see :meth:`get_definition_id`)
+            is in this dictionary, the definition will be used instead of its document schema.
+
+        :type definitions: dict
+        :rtype: (dict, dict)
+        """
         raise NotImplementedError()
 
     def get_schema(self):
+        """Returns a JSON schema (draft v4) of the data described by this field."""
         definitions, schema = self.get_definitions_and_schema()
         if definitions:
             schema['definitions'] = definitions
         return schema
 
     def walk(self, through_document_fields=False, visited_documents=()):
+        """Yields nested fields in DFS order."""
         yield self
 
 
 class StringField(BaseField):
-    def __init__(self, regex=None, min_length=None, max_length=None, **kwargs):
-        self.regex = regex
-        if self.regex is not None:
-            _validate_regex(self.regex)
+    """A string field.
+
+    :param regex:
+        (optional) A regular expression (ECMA 262) that a string value must match.
+    :param min_length:
+        (optional) A minimum length.
+    :param max_length:
+        (optional) A maximum length.
+    """
+    def __init__(self, pattern=None, min_length=None, max_length=None, **kwargs):
+        self.pattern = pattern
+        if self.pattern is not None:
+            _validate_regex(self.pattern)
         self.max_length = max_length
         self.min_length = min_length
         super(StringField, self).__init__(**kwargs)
@@ -83,8 +123,8 @@ class StringField(BaseField):
     def get_definitions_and_schema(self, definitions=None):
         schema = {'type': 'string'}
         schema.update(self._get_common_schema_fields())
-        if self.regex:
-            schema['pattern'] = self.regex
+        if self.pattern:
+            schema['pattern'] = self.pattern
         if self.min_length is not None:
             schema['minLength'] = self.min_length
         if self.max_length is not None:
@@ -93,6 +133,7 @@ class StringField(BaseField):
 
 
 class BooleanField(BaseField):
+    """A boolean field."""
     def get_definitions_and_schema(self, definitions=None):
         schema = {'type': 'boolean'}
         schema.update(self._get_common_schema_fields())
@@ -100,6 +141,7 @@ class BooleanField(BaseField):
 
 
 class EmailField(StringField):
+    """An email field."""
     def get_definitions_and_schema(self, definitions=None):
         definitions, schema = super(EmailField, self).get_definitions_and_schema(definitions=definitions)
         schema['format'] = 'email'
@@ -107,6 +149,7 @@ class EmailField(StringField):
 
 
 class IPv4Type(StringField):
+    """An IPv4 field."""
     def get_definitions_and_schema(self, definitions=None):
         definitions, schema = super(IPv4Type, self).get_definitions_and_schema(definitions=definitions)
         schema['format'] = 'ipv4'
@@ -114,6 +157,7 @@ class IPv4Type(StringField):
 
 
 class DateTimeField(StringField):
+    """A ISO 8601 formatted date-time field."""
     def get_definitions_and_schema(self, definitions=None):
         definitions, schema = super(DateTimeField, self).get_definitions_and_schema(definitions=definitions)
         schema['format'] = 'date-time'
@@ -121,17 +165,27 @@ class DateTimeField(StringField):
 
 
 class UriField(StringField):
+    """A URI field."""
     def get_definitions_and_schema(self, definitions=None):
         definitions, schema = super(UriField, self).get_definitions_and_schema(definitions=definitions)
         schema['format'] = 'uri'
         return definitions, schema
 
 
-# http://python-jsonschema.readthedocs.org/en/latest/validate/
-# TODO: ipv6
-
-
 class NumberField(BaseField):
+    """A number field.
+
+    :param multiple_of:
+        A value must be a multiple of this factor.
+    :param minimum:
+        A minimum allowed value.
+    :param exclusive_minimum:
+        Whether a value is allowed to exactly equal the minimum.
+    :param maximum:
+        A maximum allowed value.
+    :param exclusive_maximum:
+        Whether a value is allowed to exactly equal the maximum.
+    """
     _NUMBER_TYPE = 'number'
 
     def __init__(self, multiple_of=None, minimum=None, maximum=None,
@@ -160,10 +214,35 @@ class NumberField(BaseField):
 
 
 class IntField(NumberField):
+    """An integer field."""
     _NUMBER_TYPE = 'integer'
 
 
 class ArrayField(BaseField):
+    """An array field.
+
+    :param items:
+        Either of the following:
+
+        * :class:`BaseField` -- all items of the array must match the field schema;
+        * a list or a tuple of :class:`BaseField` s -- all items of the array must be
+          valid according to the field schema at the corresponding index (tuple typing).
+
+    :param min_items:
+        A minimum length of an array.
+    :type min_items: int
+    :param max_items:
+        A maximum length of an array.
+    :type max_items: int
+    :param unique_items:
+        Whether all the values in the array must be distinct.
+    :type unique_items: bool
+    :param additional_items:
+        If the value of ``items`` is a list or a tuple, and the array length is larger than
+        the number of fields in ``items``, then the additional items are described
+        by the schema in this property.
+    :type unique_items: bool or :class:`BaseField`
+    """
     def __init__(self, items, min_items=None, max_items=None, unique_items=False,
                  additional_items=None, **kwargs):
         self.items = items
@@ -222,7 +301,24 @@ class ArrayField(BaseField):
 
 
 class DictField(BaseField):
-    # max_properties
+    """A dictionary field.
+
+    :param properties:
+        A dictionary containing fields.
+    :type properties: dict from str to :class:`BaseField`
+    :param pattern_properties:
+        A dictionary whose keys are regular expressions (ECMA 262).
+        Properties match against these regular expressions, and for any that match,
+        the property is described by the corresponding field schema.
+    :type pattern_properties: dict from str to :class:`BaseField`
+    :param additional_propertiess:
+        Describes properties that are not described by the ``properties`` or ``pattern_properties``.
+    :type additional_propertiess: bool or :class:`BaseField`
+    :param min_properties:
+        A minimum number of properties.
+    :param max_properties:
+        A maximum number of properties
+    """
     def __init__(self, properties=None, pattern_properties=None, additional_properties=None,
                  min_properties=None, max_properties=None, **kwargs):
         self.properties = properties
@@ -295,6 +391,10 @@ class DictField(BaseField):
 
 
 class DocumentField(BaseField):
+    """A reference to another (or the same) document.
+
+    :param document_cls: string or :class:`Document`
+    """
     def __init__(self, document_cls, **kwargs):
         self._document_cls = document_cls
         self.owner_cls = None
@@ -308,7 +408,7 @@ class DocumentField(BaseField):
                 yield field
 
     def get_definitions_and_schema(self, definitions=None):
-        definition_id = self.document_cls.get_definition_id()
+        definition_id = self.document_cls._get_definition_id()
         if definitions and definition_id in definitions:
             return {}, definitions[definition_id]
         else:

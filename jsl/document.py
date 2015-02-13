@@ -76,18 +76,19 @@ class DocumentOptions(object):
 
 
 class Document(object):
+    """A document"""
     __metaclass__ = DocumentMeta
 
     @classmethod
     def walk(cls, through_document_fields=False, visited_documents=()):
-        """Yields nested fields in BFS order."""
+        """Yields nested fields in DFS order."""
         for field in cls._fields.itervalues():
             for field_ in field.walk(through_document_fields=through_document_fields,
                                      visited_documents=visited_documents):
                 yield field_
 
     @classmethod
-    def is_recursive(cls):
+    def _is_recursive(cls):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
         for field in cls.walk(through_document_fields=True, visited_documents=(cls,)):
             if isinstance(field, DocumentField):
@@ -96,7 +97,7 @@ class Document(object):
         return False
 
     @classmethod
-    def get_definition_id(cls):
+    def _get_definition_id(cls):
         """Returns a unique string to be used as a key for this document
         in the "definitions" schema section.
         """
@@ -126,8 +127,8 @@ class Document(object):
         :type definitions: dict
         :rtype: (dict, dict)
         """
-        is_recursive = cls.is_recursive()
-        definition_id = cls.get_definition_id()
+        is_recursive = cls._is_recursive()
+        definition_id = cls._get_definition_id()
 
         definitions_for_nested_fields = definitions or {}
         if is_recursive:

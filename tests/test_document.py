@@ -22,7 +22,7 @@ def test_to_schema():
             title = 'Task'
 
         name = StringField(required=True, min_length=5)
-        type = StringField(required=True, choices=['TYPE_1', 'TYPE_2'])
+        type = StringField(required=True, enum=['TYPE_1', 'TYPE_2'])
         resources = ArrayField(DocumentField(Resource))
         created_at = DateTimeField(required=True)
         author = DocumentField(User)

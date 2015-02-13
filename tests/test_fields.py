@@ -20,7 +20,7 @@ def test_base_field():
     f = fields.BaseField()
     assert not f.required
     assert not f.default
-    assert not f.choices
+    assert not f.enum
 
     f = fields.BaseField(required=True)
     assert f.required
@@ -41,7 +41,7 @@ def test_string_field():
         'type': 'string',
     })
 
-    f = fields.StringField(min_length=1, max_length=10, regex='^test$', choices=('a', 'b', 'c'),
+    f = fields.StringField(min_length=1, max_length=10, pattern='^test$', enum=('a', 'b', 'c'),
                            title='Pururum')
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'string',
@@ -53,7 +53,7 @@ def test_string_field():
     })
 
     with pytest.raises(ValueError) as e:
-        fields.StringField(regex='(')
+        fields.StringField(pattern='(')
     assert str(e.value) == 'Invalid regular expression: unbalanced parenthesis'
 
 
@@ -98,7 +98,7 @@ def test_number_and_int_fields():
         'maximum': 10,
     })
 
-    f = fields.NumberField(choices=(1, 2, 3))
+    f = fields.NumberField(enum=(1, 2, 3))
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'number',
         'enum': [1, 2, 3],
@@ -153,7 +153,7 @@ def test_array_field():
 
 
 def test_dict_field_to_schema():
-    f = fields.DictField(title='Hey!', choices=[{'x': 1}, {'y': 2}])
+    f = fields.DictField(title='Hey!', enum=[{'x': 1}, {'y': 2}])
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'object',
         'enum': [

@@ -1,0 +1,257 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>jsl.document &mdash; JSL 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="JSL 0.0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">JSL 0.0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for jsl.document</h1><div class="highlight"><pre>
+<span class="c"># coding: utf-8</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">unicode_literals</span>
+
+<span class="kn">import</span> <span class="nn">inspect</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">registry</span>
+<span class="kn">from</span> <span class="nn">.fields</span> <span class="kn">import</span> <span class="n">BaseField</span><span class="p">,</span> <span class="n">DocumentField</span>
+
+
+<span class="k">def</span> <span class="nf">set_owner_to_document_fields</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+    <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">_fields</span><span class="o">.</span><span class="n">itervalues</span><span class="p">():</span>
+        <span class="k">for</span> <span class="n">field_</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">(</span><span class="n">cls</span><span class="p">,)):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field_</span><span class="p">,</span> <span class="n">DocumentField</span><span class="p">):</span>
+                <span class="n">field_</span><span class="o">.</span><span class="n">set_owner</span><span class="p">(</span><span class="n">cls</span><span class="p">)</span>
+
+
+<div class="viewcode-block" id="DocumentMeta"><a class="viewcode-back" href="../../api.html#jsl.document.DocumentMeta">[docs]</a><span class="k">class</span> <span class="nc">DocumentMeta</span><span class="p">(</span><span class="nb">type</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A metaclass for :class:`Document`s. Does some bookkeeping:</span>
+
+<span class="sd">    * registers a document in :mod:`registry`</span>
+<span class="sd">    * sets owner for a document&#39;s :class:`DocumentField`s</span>
+<span class="sd">    * creates ``_options`` and ``_fields`` attributes</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+
+    <span class="k">def</span> <span class="nf">__new__</span><span class="p">(</span><span class="n">mcs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">):</span>
+        <span class="n">fields</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="c"># accumulate fields from parent classes</span>
+        <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">bases</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="s">&#39;_fields&#39;</span><span class="p">):</span>
+                <span class="n">fields</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">_fields</span><span class="p">)</span>
+
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">attrs</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">value</span><span class="p">,</span> <span class="n">BaseField</span><span class="p">):</span>
+                <span class="n">fields</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="n">options</span> <span class="o">=</span> <span class="n">mcs</span><span class="o">.</span><span class="n">_read_options</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">)</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s">&#39;_fields&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">fields</span>
+        <span class="n">attrs</span><span class="p">[</span><span class="s">&#39;_options&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">options</span>
+        <span class="n">klass</span> <span class="o">=</span> <span class="nb">type</span><span class="o">.</span><span class="n">__new__</span><span class="p">(</span><span class="n">mcs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">)</span>
+        <span class="n">registry</span><span class="o">.</span><span class="n">put_document</span><span class="p">(</span><span class="n">klass</span><span class="o">.</span><span class="n">__name__</span><span class="p">,</span> <span class="n">klass</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="n">klass</span><span class="o">.</span><span class="n">__module__</span><span class="p">)</span>
+        <span class="n">set_owner_to_document_fields</span><span class="p">(</span><span class="n">klass</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">klass</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_read_options</span><span class="p">(</span><span class="n">mcs</span><span class="p">,</span> <span class="n">name</span><span class="p">,</span> <span class="n">bases</span><span class="p">,</span> <span class="n">attrs</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">        Parses `DocumentOptions` instance into the options value attached to</span>
+<span class="sd">        `Document` instances.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">options_members</span> <span class="o">=</span> <span class="p">{}</span>
+
+        <span class="k">for</span> <span class="n">base</span> <span class="ow">in</span> <span class="nb">reversed</span><span class="p">(</span><span class="n">bases</span><span class="p">):</span>
+            <span class="k">if</span> <span class="nb">hasattr</span><span class="p">(</span><span class="n">base</span><span class="p">,</span> <span class="s">&#39;_options&#39;</span><span class="p">):</span>
+                <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">base</span><span class="o">.</span><span class="n">_options</span><span class="p">):</span>
+                    <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">):</span>
+                        <span class="n">options_members</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">if</span> <span class="s">&#39;Options&#39;</span> <span class="ow">in</span> <span class="n">attrs</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">value</span> <span class="ow">in</span> <span class="n">inspect</span><span class="o">.</span><span class="n">getmembers</span><span class="p">(</span><span class="n">attrs</span><span class="p">[</span><span class="s">&#39;Options&#39;</span><span class="p">]):</span>
+                <span class="k">if</span> <span class="ow">not</span> <span class="n">key</span><span class="o">.</span><span class="n">startswith</span><span class="p">(</span><span class="s">&#39;_&#39;</span><span class="p">):</span>
+                    <span class="n">options_members</span><span class="p">[</span><span class="n">key</span><span class="p">]</span> <span class="o">=</span> <span class="n">value</span>
+
+        <span class="k">return</span> <span class="n">DocumentOptions</span><span class="p">(</span><span class="o">**</span><span class="n">options_members</span><span class="p">)</span>
+
+</div>
+<div class="viewcode-block" id="DocumentOptions"><a class="viewcode-back" href="../../api.html#jsl.document.DocumentOptions">[docs]</a><span class="k">class</span> <span class="nc">DocumentOptions</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    A container for document options. Its primary purpose is to create</span>
+<span class="sd">    an instance of a document&#39;s options for every instance of a document.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">additional_properties</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">title</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span> <span class="o">=</span> <span class="n">additional_properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+
+</div>
+<div class="viewcode-block" id="Document"><a class="viewcode-back" href="../../api.html#jsl.document.Document">[docs]</a><span class="k">class</span> <span class="nc">Document</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A document&quot;&quot;&quot;</span>
+    <span class="n">__metaclass__</span> <span class="o">=</span> <span class="n">DocumentMeta</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Document.walk"><a class="viewcode-back" href="../../api.html#jsl.document.Document.walk">[docs]</a>    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">()):</span>
+        <span class="sd">&quot;&quot;&quot;Yields nested fields in DFS order.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">_fields</span><span class="o">.</span><span class="n">itervalues</span><span class="p">():</span>
+            <span class="k">for</span> <span class="n">field_</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="n">through_document_fields</span><span class="p">,</span>
+                                     <span class="n">visited_documents</span><span class="o">=</span><span class="n">visited_documents</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">field_</span>
+</div>
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_is_recursive</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns if the document is recursive, i.e. has a DocumentField pointing to itself.&quot;&quot;&quot;</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="bp">True</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">(</span><span class="n">cls</span><span class="p">,)):</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">field</span><span class="p">,</span> <span class="n">DocumentField</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">document_cls</span> <span class="o">==</span> <span class="n">cls</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="bp">True</span>
+        <span class="k">return</span> <span class="bp">False</span>
+
+    <span class="nd">@classmethod</span>
+    <span class="k">def</span> <span class="nf">_get_definition_id</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a unique string to be used as a key for this document</span>
+<span class="sd">        in the &quot;definitions&quot; schema section.</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">return</span> <span class="s">&#39;{}.{}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">cls</span><span class="o">.</span><span class="n">__module__</span><span class="p">,</span> <span class="n">cls</span><span class="o">.</span><span class="n">__name__</span><span class="p">)</span>
+
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Document.get_schema"><a class="viewcode-back" href="../../api.html#jsl.document.Document.get_schema">[docs]</a>    <span class="k">def</span> <span class="nf">get_schema</span><span class="p">(</span><span class="n">cls</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a JSON schema (draft v4) of the document.&quot;&quot;&quot;</span>
+        <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">definitions</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;definitions&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">definitions</span>
+        <span class="k">return</span> <span class="n">schema</span>
+</div>
+    <span class="nd">@classmethod</span>
+<div class="viewcode-block" id="Document.get_definitions_and_schema"><a class="viewcode-back" href="../../api.html#jsl.document.Document.get_definitions_and_schema">[docs]</a>    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="n">cls</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a tuple of two elements.</span>
+
+<span class="sd">        The second element is a JSON schema of the document, and the first is a dictionary</span>
+<span class="sd">        containing definitions that are referenced from the schema.</span>
+
+<span class="sd">        :arg definitions:</span>
+<span class="sd">            Overrides some of the nested :class:`DocumentField`s schemas.</span>
+
+<span class="sd">            If :class:`DocumentField`&#39;s document definition id (see :meth:`get_definition_id`)</span>
+<span class="sd">            is in this dictionary, the definition will be used instead of its document schema.</span>
+
+<span class="sd">        :type definitions: dict</span>
+<span class="sd">        :rtype: (dict, dict)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="n">is_recursive</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">_is_recursive</span><span class="p">()</span>
+        <span class="n">definition_id</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">_get_definition_id</span><span class="p">()</span>
+
+        <span class="n">definitions_for_nested_fields</span> <span class="o">=</span> <span class="n">definitions</span> <span class="ow">or</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="n">is_recursive</span><span class="p">:</span>
+            <span class="n">definitions_for_nested_fields</span> <span class="o">=</span> <span class="nb">dict</span><span class="p">(</span><span class="n">definitions_for_nested_fields</span><span class="p">)</span>
+            <span class="n">definitions_for_nested_fields</span><span class="p">[</span><span class="n">definition_id</span><span class="p">]</span> <span class="o">=</span> <span class="p">{</span>
+                <span class="s">&#39;$ref&#39;</span><span class="p">:</span> <span class="s">&#39;#/definitions/{}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">definition_id</span><span class="p">),</span>
+            <span class="p">}</span>
+
+        <span class="n">definitions</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">properties</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">required</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">cls</span><span class="o">.</span><span class="n">_fields</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="n">field_definitions</span><span class="p">,</span> <span class="n">field_schema</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+                <span class="n">definitions</span><span class="o">=</span><span class="n">definitions_for_nested_fields</span><span class="p">)</span>
+            <span class="n">properties</span><span class="p">[</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_schema</span>
+            <span class="n">definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">)</span>
+            <span class="k">if</span> <span class="n">field</span><span class="o">.</span><span class="n">required</span><span class="p">:</span>
+                <span class="n">required</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">name</span><span class="p">)</span>
+
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">,</span>
+            <span class="s">&#39;additionalProperties&#39;</span><span class="p">:</span> <span class="n">cls</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">additional_properties</span><span class="p">,</span>
+            <span class="s">&#39;properties&#39;</span><span class="p">:</span> <span class="n">properties</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="k">if</span> <span class="n">required</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;required&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">required</span>
+        <span class="k">if</span> <span class="n">cls</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;title&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">cls</span><span class="o">.</span><span class="n">_options</span><span class="o">.</span><span class="n">title</span>
+
+        <span class="k">if</span> <span class="n">is_recursive</span><span class="p">:</span>
+            <span class="n">definitions</span><span class="p">[</span><span class="n">definition_id</span><span class="p">]</span> <span class="o">=</span> <span class="n">schema</span>
+            <span class="k">return</span> <span class="n">definitions</span><span class="p">,</span> <span class="p">{</span><span class="s">&#39;$ref&#39;</span><span class="p">:</span> <span class="s">&#39;#/definitions/{}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">definition_id</span><span class="p">)}</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span></div></div>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">JSL 0.0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2015, Anton Romanovich.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

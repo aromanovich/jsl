@@ -1,0 +1,578 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+  "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+  <head>
+    <meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+    
+    <title>jsl.fields &mdash; JSL 0.0.1 documentation</title>
+    
+    <link rel="stylesheet" href="../../_static/nature.css" type="text/css" />
+    <link rel="stylesheet" href="../../_static/pygments.css" type="text/css" />
+    
+    <script type="text/javascript">
+      var DOCUMENTATION_OPTIONS = {
+        URL_ROOT:    '../../',
+        VERSION:     '0.0.1',
+        COLLAPSE_INDEX: false,
+        FILE_SUFFIX: '.html',
+        HAS_SOURCE:  true
+      };
+    </script>
+    <script type="text/javascript" src="../../_static/jquery.js"></script>
+    <script type="text/javascript" src="../../_static/underscore.js"></script>
+    <script type="text/javascript" src="../../_static/doctools.js"></script>
+    <link rel="top" title="JSL 0.0.1 documentation" href="../../index.html" />
+    <link rel="up" title="Module code" href="../index.html" /> 
+  </head>
+  <body>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             accesskey="I">index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">JSL 0.0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" accesskey="U">Module code</a> &raquo;</li> 
+      </ul>
+    </div>  
+
+    <div class="document">
+      <div class="documentwrapper">
+        <div class="bodywrapper">
+          <div class="body">
+            
+  <h1>Source code for jsl.fields</h1><div class="highlight"><pre>
+<span class="c"># coding: utf-8</span>
+<span class="kn">from</span> <span class="nn">__future__</span> <span class="kn">import</span> <span class="n">unicode_literals</span>
+
+<span class="kn">import</span> <span class="nn">re</span>
+<span class="kn">import</span> <span class="nn">sre_constants</span>
+<span class="kn">import</span> <span class="nn">itertools</span>
+
+<span class="kn">from</span> <span class="nn">.</span> <span class="kn">import</span> <span class="n">registry</span>
+
+
+<span class="n">RECURSIVE_REFERENCE_CONSTANT</span> <span class="o">=</span> <span class="s">&#39;self&#39;</span>
+
+
+<span class="k">def</span> <span class="nf">_validate_regex</span><span class="p">(</span><span class="n">regex</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;</span>
+<span class="sd">    :type regex: str</span>
+<span class="sd">    :raises: ValueError</span>
+<span class="sd">    :return:</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">try</span><span class="p">:</span>
+        <span class="n">re</span><span class="o">.</span><span class="n">compile</span><span class="p">(</span><span class="n">regex</span><span class="p">)</span>
+    <span class="k">except</span> <span class="n">sre_constants</span><span class="o">.</span><span class="n">error</span> <span class="k">as</span> <span class="n">e</span><span class="p">:</span>
+        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;Invalid regular expression: {}&#39;</span><span class="o">.</span><span class="n">format</span><span class="p">(</span><span class="n">e</span><span class="p">))</span>
+
+
+<div class="viewcode-block" id="BaseField"><a class="viewcode-back" href="../../api.html#jsl.fields.BaseField">[docs]</a><span class="k">class</span> <span class="nc">BaseField</span><span class="p">(</span><span class="nb">object</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A base class for fields in a JSL :class:`.document.Document`.</span>
+<span class="sd">    Instances of this class are added to a document to define its properties.</span>
+
+<span class="sd">    :param required:</span>
+<span class="sd">        If the field is required, defaults to False.</span>
+<span class="sd">    :param default:</span>
+<span class="sd">        (optional) The default value for this field. May be a callable.</span>
+<span class="sd">    :param enum:</span>
+<span class="sd">        (optional) A list of valid choices. May be a callable.</span>
+<span class="sd">    :param title:</span>
+<span class="sd">        (optional) A short explanation about the purpose of the data described by this field.</span>
+<span class="sd">    :param description:</span>
+<span class="sd">        (optional) A detailed explanation about the purpose of the data described by this field.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">required</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">default</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">enum</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                 <span class="n">title</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">description</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">required</span> <span class="o">=</span> <span class="n">required</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="o">=</span> <span class="n">title</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="o">=</span> <span class="n">description</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_enum</span> <span class="o">=</span> <span class="n">enum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_default</span> <span class="o">=</span> <span class="n">default</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">enum</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">enum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enum</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_enum</span><span class="p">):</span>
+            <span class="n">enum</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_enum</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">enum</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">default</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">default</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default</span>
+        <span class="k">if</span> <span class="nb">callable</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_default</span><span class="p">):</span>
+            <span class="n">default</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default</span><span class="p">()</span>
+        <span class="k">return</span> <span class="n">default</span>
+
+    <span class="k">def</span> <span class="nf">_get_common_schema_fields</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="n">rv</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">rv</span><span class="p">[</span><span class="s">&#39;title&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">title</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">rv</span><span class="p">[</span><span class="s">&#39;description&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">description</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">enum</span><span class="p">:</span>
+            <span class="n">rv</span><span class="p">[</span><span class="s">&#39;enum&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">enum</span><span class="p">)</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_default</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">rv</span><span class="p">[</span><span class="s">&#39;default&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">default</span>
+        <span class="k">return</span> <span class="n">rv</span>
+
+<div class="viewcode-block" id="BaseField.get_definitions_and_schema"><a class="viewcode-back" href="../../api.html#jsl.fields.BaseField.get_definitions_and_schema">[docs]</a>    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a tuple of two elements.</span>
+
+<span class="sd">        The second element is a JSON schema of the data described by this field,</span>
+<span class="sd">        and the first is a dictionary containing definitions that are referenced</span>
+<span class="sd">        from the field schema.</span>
+
+<span class="sd">        :arg definitions:</span>
+<span class="sd">            Overrides some of the nested :class:`DocumentField`s schemas.</span>
+
+<span class="sd">            If :class:`DocumentField`&#39;s document definition id (see :meth:`get_definition_id`)</span>
+<span class="sd">            is in this dictionary, the definition will be used instead of its document schema.</span>
+
+<span class="sd">        :type definitions: dict</span>
+<span class="sd">        :rtype: (dict, dict)</span>
+<span class="sd">        &quot;&quot;&quot;</span>
+        <span class="k">raise</span> <span class="ne">NotImplementedError</span><span class="p">()</span>
+</div>
+<div class="viewcode-block" id="BaseField.get_schema"><a class="viewcode-back" href="../../api.html#jsl.fields.BaseField.get_schema">[docs]</a>    <span class="k">def</span> <span class="nf">get_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="sd">&quot;&quot;&quot;Returns a JSON schema (draft v4) of the data described by this field.&quot;&quot;&quot;</span>
+        <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">definitions</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;definitions&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">definitions</span>
+        <span class="k">return</span> <span class="n">schema</span>
+</div>
+<div class="viewcode-block" id="BaseField.walk"><a class="viewcode-back" href="../../api.html#jsl.fields.BaseField.walk">[docs]</a>    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">()):</span>
+        <span class="sd">&quot;&quot;&quot;Yields nested fields in DFS order.&quot;&quot;&quot;</span>
+        <span class="k">yield</span> <span class="bp">self</span>
+
+</div></div>
+<div class="viewcode-block" id="StringField"><a class="viewcode-back" href="../../api.html#jsl.fields.StringField">[docs]</a><span class="k">class</span> <span class="nc">StringField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A string field.</span>
+
+<span class="sd">    :param regex:</span>
+<span class="sd">        (optional) A regular expression (ECMA 262) that a string value must match.</span>
+<span class="sd">    :param min_length:</span>
+<span class="sd">        (optional) A minimum length.</span>
+<span class="sd">    :param max_length:</span>
+<span class="sd">        (optional) A maximum length.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">pattern</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">min_length</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_length</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span> <span class="o">=</span> <span class="n">pattern</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">_validate_regex</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pattern</span><span class="p">)</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_length</span> <span class="o">=</span> <span class="n">max_length</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_length</span> <span class="o">=</span> <span class="n">min_length</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">StringField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;string&#39;</span><span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;pattern&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;minLength&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_length</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_length</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;maxLength&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_length</span>
+        <span class="k">return</span> <span class="p">{},</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="BooleanField"><a class="viewcode-back" href="../../api.html#jsl.fields.BooleanField">[docs]</a><span class="k">class</span> <span class="nc">BooleanField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A boolean field.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;boolean&#39;</span><span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+        <span class="k">return</span> <span class="p">{},</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="EmailField"><a class="viewcode-back" href="../../api.html#jsl.fields.EmailField">[docs]</a><span class="k">class</span> <span class="nc">EmailField</span><span class="p">(</span><span class="n">StringField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An email field.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">EmailField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span><span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+        <span class="n">schema</span><span class="p">[</span><span class="s">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;email&#39;</span>
+        <span class="k">return</span> <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="IPv4Type"><a class="viewcode-back" href="../../api.html#jsl.fields.IPv4Type">[docs]</a><span class="k">class</span> <span class="nc">IPv4Type</span><span class="p">(</span><span class="n">StringField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An IPv4 field.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">IPv4Type</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span><span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+        <span class="n">schema</span><span class="p">[</span><span class="s">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;ipv4&#39;</span>
+        <span class="k">return</span> <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="DateTimeField"><a class="viewcode-back" href="../../api.html#jsl.fields.DateTimeField">[docs]</a><span class="k">class</span> <span class="nc">DateTimeField</span><span class="p">(</span><span class="n">StringField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A ISO 8601 formatted date-time field.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">DateTimeField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span><span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+        <span class="n">schema</span><span class="p">[</span><span class="s">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;date-time&#39;</span>
+        <span class="k">return</span> <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="UriField"><a class="viewcode-back" href="../../api.html#jsl.fields.UriField">[docs]</a><span class="k">class</span> <span class="nc">UriField</span><span class="p">(</span><span class="n">StringField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A URI field.&quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span> <span class="o">=</span> <span class="nb">super</span><span class="p">(</span><span class="n">UriField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span><span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+        <span class="n">schema</span><span class="p">[</span><span class="s">&#39;format&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="s">&#39;uri&#39;</span>
+        <span class="k">return</span> <span class="n">definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="NumberField"><a class="viewcode-back" href="../../api.html#jsl.fields.NumberField">[docs]</a><span class="k">class</span> <span class="nc">NumberField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A number field.</span>
+
+<span class="sd">    :param multiple_of:</span>
+<span class="sd">        A value must be a multiple of this factor.</span>
+<span class="sd">    :param minimum:</span>
+<span class="sd">        A minimum allowed value.</span>
+<span class="sd">    :param exclusive_minimum:</span>
+<span class="sd">        Whether a value is allowed to exactly equal the minimum.</span>
+<span class="sd">    :param maximum:</span>
+<span class="sd">        A maximum allowed value.</span>
+<span class="sd">    :param exclusive_maximum:</span>
+<span class="sd">        Whether a value is allowed to exactly equal the maximum.</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="n">_NUMBER_TYPE</span> <span class="o">=</span> <span class="s">&#39;number&#39;</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">multiple_of</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">minimum</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">maximum</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                 <span class="n">exclusive_minimum</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">exclusive_maximum</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">multiple_of</span> <span class="o">=</span> <span class="n">multiple_of</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">minimum</span> <span class="o">=</span> <span class="n">minimum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exclusive_minimum</span> <span class="o">=</span> <span class="n">exclusive_minimum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">maximum</span> <span class="o">=</span> <span class="n">maximum</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">exclusive_maximum</span> <span class="o">=</span> <span class="n">exclusive_maximum</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NumberField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="bp">self</span><span class="o">.</span><span class="n">_NUMBER_TYPE</span><span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiple_of</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;multipleOf&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">multiple_of</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">minimum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;minimum&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">minimum</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclusive_minimum</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;exclusiveMinumum&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">maximum</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;maximum&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">maximum</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">exclusive_maximum</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;exclusiveMaximum&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+        <span class="k">return</span> <span class="p">{},</span> <span class="n">schema</span>
+
+</div>
+<div class="viewcode-block" id="IntField"><a class="viewcode-back" href="../../api.html#jsl.fields.IntField">[docs]</a><span class="k">class</span> <span class="nc">IntField</span><span class="p">(</span><span class="n">NumberField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An integer field.&quot;&quot;&quot;</span>
+    <span class="n">_NUMBER_TYPE</span> <span class="o">=</span> <span class="s">&#39;integer&#39;</span>
+
+</div>
+<div class="viewcode-block" id="ArrayField"><a class="viewcode-back" href="../../api.html#jsl.fields.ArrayField">[docs]</a><span class="k">class</span> <span class="nc">ArrayField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;An array field.</span>
+
+<span class="sd">    :param items:</span>
+<span class="sd">        Either of the following:</span>
+
+<span class="sd">        * :class:`BaseField` -- all items of the array must match the field schema;</span>
+<span class="sd">        * a list or a tuple of :class:`BaseField` s -- all items of the array must be</span>
+<span class="sd">          valid according to the field schema at the corresponding index (tuple typing).</span>
+
+<span class="sd">    :param min_items:</span>
+<span class="sd">        A minimum length of an array.</span>
+<span class="sd">    :type min_items: int</span>
+<span class="sd">    :param max_items:</span>
+<span class="sd">        A maximum length of an array.</span>
+<span class="sd">    :type max_items: int</span>
+<span class="sd">    :param unique_items:</span>
+<span class="sd">        Whether all the values in the array must be distinct.</span>
+<span class="sd">    :type unique_items: bool</span>
+<span class="sd">    :param additional_items:</span>
+<span class="sd">        If the value of ``items`` is a list or a tuple, and the array length is larger than</span>
+<span class="sd">        the number of fields in ``items``, then the additional items are described</span>
+<span class="sd">        by the schema in this property.</span>
+<span class="sd">    :type unique_items: bool or :class:`BaseField`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">items</span><span class="p">,</span> <span class="n">min_items</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_items</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">unique_items</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span>
+                 <span class="n">additional_items</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">items</span> <span class="o">=</span> <span class="n">items</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_items</span> <span class="o">=</span> <span class="n">min_items</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_items</span> <span class="o">=</span> <span class="n">max_items</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">unique_items</span> <span class="o">=</span> <span class="n">unique_items</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_items</span> <span class="o">=</span> <span class="n">additional_items</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">ArrayField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="n">nested_definitions</span> <span class="o">=</span> <span class="p">{}</span>
+            <span class="n">nested_schema</span> <span class="o">=</span> <span class="p">[]</span>
+            <span class="k">for</span> <span class="n">item</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+                <span class="n">item_definitions</span><span class="p">,</span> <span class="n">item_schema</span> <span class="o">=</span> <span class="n">item</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+                    <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+                <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">item_definitions</span><span class="p">)</span>
+                <span class="n">nested_schema</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">item_schema</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="n">nested_definitions</span><span class="p">,</span> <span class="n">nested_schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+                <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span>
+            <span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;array&#39;</span><span class="p">,</span>
+            <span class="s">&#39;items&#39;</span><span class="p">:</span> <span class="n">nested_schema</span><span class="p">,</span>
+        <span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;minItems&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_items</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;maxItems&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_items</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">unique_items</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;uniqueItems&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">True</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_items</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_items</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="n">schema</span><span class="p">[</span><span class="s">&#39;additionalItems&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_items</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">items_definitions</span><span class="p">,</span> <span class="n">items_schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_items</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+                    <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+                <span class="n">schema</span><span class="p">[</span><span class="s">&#39;additionalItems&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">items_schema</span>
+                <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">items_definitions</span><span class="p">)</span>
+
+        <span class="k">return</span> <span class="n">nested_definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">yield</span> <span class="bp">self</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">,</span> <span class="p">(</span><span class="nb">list</span><span class="p">,</span> <span class="nb">tuple</span><span class="p">)):</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="p">:</span>
+                <span class="k">for</span> <span class="n">field_</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="n">through_document_fields</span><span class="p">,</span>
+                                         <span class="n">visited_documents</span><span class="o">=</span><span class="n">visited_documents</span><span class="p">):</span>
+                    <span class="k">yield</span> <span class="n">field_</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">items</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="n">through_document_fields</span><span class="p">,</span>
+                                         <span class="n">visited_documents</span><span class="o">=</span><span class="n">visited_documents</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">field</span>
+
+</div>
+<div class="viewcode-block" id="DictField"><a class="viewcode-back" href="../../api.html#jsl.fields.DictField">[docs]</a><span class="k">class</span> <span class="nc">DictField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A dictionary field.</span>
+
+<span class="sd">    :param properties:</span>
+<span class="sd">        A dictionary containing fields.</span>
+<span class="sd">    :type properties: dict from str to :class:`BaseField`</span>
+<span class="sd">    :param pattern_properties:</span>
+<span class="sd">        A dictionary whose keys are regular expressions (ECMA 262).</span>
+<span class="sd">        Properties match against these regular expressions, and for any that match,</span>
+<span class="sd">        the property is described by the corresponding field schema.</span>
+<span class="sd">    :type pattern_properties: dict from str to :class:`BaseField`</span>
+<span class="sd">    :param additional_propertiess:</span>
+<span class="sd">        Describes properties that are not described by the ``properties`` or ``pattern_properties``.</span>
+<span class="sd">    :type additional_propertiess: bool or :class:`BaseField`</span>
+<span class="sd">    :param min_properties:</span>
+<span class="sd">        A minimum number of properties.</span>
+<span class="sd">    :param max_properties:</span>
+<span class="sd">        A maximum number of properties</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">properties</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">pattern_properties</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">additional_properties</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span>
+                 <span class="n">min_properties</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="n">max_properties</span><span class="o">=</span><span class="bp">None</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="o">=</span> <span class="n">properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">pattern_properties</span> <span class="o">=</span> <span class="n">pattern_properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span> <span class="o">=</span> <span class="n">additional_properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">min_properties</span> <span class="o">=</span> <span class="n">min_properties</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">max_properties</span> <span class="o">=</span> <span class="n">max_properties</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DictField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="nd">@staticmethod</span>
+    <span class="k">def</span> <span class="nf">_process_properties</span><span class="p">(</span><span class="n">properties</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">nested_definitions</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">prop</span><span class="p">,</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">properties</span><span class="o">.</span><span class="n">iteritems</span><span class="p">():</span>
+            <span class="n">field_definitions</span><span class="p">,</span> <span class="n">field_schema</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+                <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+            <span class="n">schema</span><span class="p">[</span><span class="n">prop</span><span class="p">]</span> <span class="o">=</span> <span class="n">field_schema</span>
+            <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">)</span>
+        <span class="k">return</span> <span class="n">nested_definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">nested_definitions</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;type&#39;</span><span class="p">:</span> <span class="s">&#39;object&#39;</span><span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">properties_definitions</span><span class="p">,</span> <span class="n">properties_schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_properties</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;properties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">properties_schema</span>
+            <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">properties_definitions</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">key</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern_properties</span><span class="o">.</span><span class="n">iterkeys</span><span class="p">():</span>
+                <span class="n">_validate_regex</span><span class="p">(</span><span class="n">key</span><span class="p">)</span>
+            <span class="n">properties_definitions</span><span class="p">,</span> <span class="n">properties_schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">_process_properties</span><span class="p">(</span>
+                <span class="bp">self</span><span class="o">.</span><span class="n">pattern_properties</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;patternProperties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">properties_schema</span>
+            <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">properties_definitions</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+                <span class="n">schema</span><span class="p">[</span><span class="s">&#39;additionalProperties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="n">properties_definitions</span><span class="p">,</span> <span class="n">properties_schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+                    <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+                <span class="n">schema</span><span class="p">[</span><span class="s">&#39;additionalProperties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="n">properties_schema</span>
+                <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">properties_definitions</span><span class="p">)</span>
+
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;minProperties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">min_properties</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">schema</span><span class="p">[</span><span class="s">&#39;maxProperties&#39;</span><span class="p">]</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">max_properties</span>
+
+        <span class="k">return</span> <span class="n">nested_definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">()):</span>
+        <span class="n">fields_to_visit</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">fields_to_visit</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">itervalues</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">pattern_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span><span class="p">:</span>
+            <span class="n">fields_to_visit</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">pattern_properties</span><span class="o">.</span><span class="n">itervalues</span><span class="p">())</span>
+        <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span> <span class="ow">is</span> <span class="ow">not</span> <span class="bp">None</span> <span class="ow">and</span> <span class="ow">not</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span><span class="p">,</span> <span class="nb">bool</span><span class="p">):</span>
+            <span class="n">fields_to_visit</span><span class="o">.</span><span class="n">append</span><span class="p">([</span><span class="bp">self</span><span class="o">.</span><span class="n">additional_properties</span><span class="p">])</span>
+
+        <span class="k">yield</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="n">itertools</span><span class="o">.</span><span class="n">chain</span><span class="p">(</span><span class="o">*</span><span class="n">fields_to_visit</span><span class="p">):</span>
+            <span class="k">for</span> <span class="n">field_</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="n">through_document_fields</span><span class="p">,</span>
+                                     <span class="n">visited_documents</span><span class="o">=</span><span class="n">visited_documents</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">field_</span>
+
+</div>
+<div class="viewcode-block" id="DocumentField"><a class="viewcode-back" href="../../api.html#jsl.fields.DocumentField">[docs]</a><span class="k">class</span> <span class="nc">DocumentField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="sd">&quot;&quot;&quot;A reference to another (or the same) document.</span>
+
+<span class="sd">    :param document_cls: string or :class:`Document`</span>
+<span class="sd">    &quot;&quot;&quot;</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">document_cls</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">_document_cls</span> <span class="o">=</span> <span class="n">document_cls</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">owner_cls</span> <span class="o">=</span> <span class="bp">None</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">DocumentField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">yield</span> <span class="bp">self</span>
+        <span class="k">if</span> <span class="n">through_document_fields</span> <span class="ow">and</span> <span class="bp">self</span><span class="o">.</span><span class="n">document_cls</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">visited_documents</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">document_cls</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="n">through_document_fields</span><span class="p">,</span>
+                                                <span class="n">visited_documents</span><span class="o">=</span><span class="n">visited_documents</span> <span class="o">+</span> <span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">document_cls</span><span class="p">,)):</span>
+                <span class="k">yield</span> <span class="n">field</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">definition_id</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">document_cls</span><span class="o">.</span><span class="n">_get_definition_id</span><span class="p">()</span>
+        <span class="k">if</span> <span class="n">definitions</span> <span class="ow">and</span> <span class="n">definition_id</span> <span class="ow">in</span> <span class="n">definitions</span><span class="p">:</span>
+            <span class="k">return</span> <span class="p">{},</span> <span class="n">definitions</span><span class="p">[</span><span class="n">definition_id</span><span class="p">]</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">document_cls</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span><span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">set_owner</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">owner_cls</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">owner_cls</span> <span class="o">=</span> <span class="n">owner_cls</span>
+
+    <span class="nd">@property</span>
+    <span class="k">def</span> <span class="nf">document_cls</span><span class="p">(</span><span class="bp">self</span><span class="p">):</span>
+        <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_document_cls</span><span class="p">,</span> <span class="nb">basestring</span><span class="p">):</span>
+            <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">_document_cls</span> <span class="o">==</span> <span class="n">RECURSIVE_REFERENCE_CONSTANT</span><span class="p">:</span>
+                <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">owner_cls</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                    <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;owner_cls is not set&#39;</span><span class="p">)</span>
+                <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">owner_cls</span>
+            <span class="k">else</span><span class="p">:</span>
+                <span class="k">try</span><span class="p">:</span>
+                    <span class="k">return</span> <span class="n">registry</span><span class="o">.</span><span class="n">get_document</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_document_cls</span><span class="p">)</span>
+                <span class="k">except</span> <span class="ne">KeyError</span><span class="p">:</span>
+                    <span class="k">if</span> <span class="bp">self</span><span class="o">.</span><span class="n">owner_cls</span> <span class="ow">is</span> <span class="bp">None</span><span class="p">:</span>
+                        <span class="k">raise</span> <span class="ne">ValueError</span><span class="p">(</span><span class="s">&#39;owner_cls is not set&#39;</span><span class="p">)</span>
+                    <span class="k">return</span> <span class="n">registry</span><span class="o">.</span><span class="n">get_document</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_document_cls</span><span class="p">,</span> <span class="n">module</span><span class="o">=</span><span class="bp">self</span><span class="o">.</span><span class="n">owner_cls</span><span class="o">.</span><span class="n">__module__</span><span class="p">)</span>
+        <span class="k">else</span><span class="p">:</span>
+            <span class="k">return</span> <span class="bp">self</span><span class="o">.</span><span class="n">_document_cls</span>
+
+</div>
+<span class="k">class</span> <span class="nc">OfField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="n">_KEYWORD</span> <span class="o">=</span> <span class="bp">None</span>
+
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">fields</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">fields</span> <span class="o">=</span> <span class="nb">list</span><span class="p">(</span><span class="n">fields</span><span class="p">)</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">OfField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">nested_definitions</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="n">one_of</span> <span class="o">=</span> <span class="p">[]</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">:</span>
+            <span class="n">field_definitions</span><span class="p">,</span> <span class="n">field_schema</span> <span class="o">=</span> <span class="n">field</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span><span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+            <span class="n">nested_definitions</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="n">field_definitions</span><span class="p">)</span>
+            <span class="n">one_of</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">field_schema</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span><span class="bp">self</span><span class="o">.</span><span class="n">_KEYWORD</span><span class="p">:</span> <span class="n">one_of</span><span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">nested_definitions</span><span class="p">,</span> <span class="n">schema</span>
+
+    <span class="k">def</span> <span class="nf">walk</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">through_document_fields</span><span class="o">=</span><span class="bp">False</span><span class="p">,</span> <span class="n">visited_documents</span><span class="o">=</span><span class="p">()):</span>
+        <span class="k">yield</span> <span class="bp">self</span>
+        <span class="k">for</span> <span class="n">field</span> <span class="ow">in</span> <span class="bp">self</span><span class="o">.</span><span class="n">fields</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">field_</span> <span class="ow">in</span> <span class="n">field</span><span class="o">.</span><span class="n">walk</span><span class="p">(</span><span class="n">through_document_fields</span><span class="o">=</span><span class="n">through_document_fields</span><span class="p">,</span>
+                                     <span class="n">visited_documents</span><span class="o">=</span><span class="n">visited_documents</span><span class="p">):</span>
+                <span class="k">yield</span> <span class="n">field_</span>
+
+
+<span class="k">class</span> <span class="nc">OneOfField</span><span class="p">(</span><span class="n">OfField</span><span class="p">):</span>
+    <span class="n">_KEYWORD</span> <span class="o">=</span> <span class="s">&#39;oneOf&#39;</span>
+
+
+<span class="k">class</span> <span class="nc">AnyOfField</span><span class="p">(</span><span class="n">OfField</span><span class="p">):</span>
+    <span class="n">_KEYWORD</span> <span class="o">=</span> <span class="s">&#39;anyOf&#39;</span>
+
+
+<span class="k">class</span> <span class="nc">AllOfField</span><span class="p">(</span><span class="n">OfField</span><span class="p">):</span>
+    <span class="n">_KEYWORD</span> <span class="o">=</span> <span class="s">&#39;allOf&#39;</span>
+
+
+<span class="k">class</span> <span class="nc">NotField</span><span class="p">(</span><span class="n">BaseField</span><span class="p">):</span>
+    <span class="k">def</span> <span class="nf">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">field</span><span class="p">,</span> <span class="o">**</span><span class="n">kwargs</span><span class="p">):</span>
+        <span class="bp">self</span><span class="o">.</span><span class="n">field</span> <span class="o">=</span> <span class="n">field</span>
+        <span class="nb">super</span><span class="p">(</span><span class="n">NotField</span><span class="p">,</span> <span class="bp">self</span><span class="p">)</span><span class="o">.</span><span class="n">__init__</span><span class="p">(</span><span class="o">**</span><span class="n">kwargs</span><span class="p">)</span>
+
+    <span class="k">def</span> <span class="nf">get_definitions_and_schema</span><span class="p">(</span><span class="bp">self</span><span class="p">,</span> <span class="n">definitions</span><span class="o">=</span><span class="bp">None</span><span class="p">):</span>
+        <span class="n">field_definitions</span><span class="p">,</span> <span class="n">field_schema</span> <span class="o">=</span> <span class="bp">self</span><span class="o">.</span><span class="n">field</span><span class="o">.</span><span class="n">get_definitions_and_schema</span><span class="p">(</span>
+            <span class="n">definitions</span><span class="o">=</span><span class="n">definitions</span><span class="p">)</span>
+        <span class="n">schema</span> <span class="o">=</span> <span class="p">{</span><span class="s">&#39;not&#39;</span><span class="p">:</span> <span class="n">field_schema</span><span class="p">}</span>
+        <span class="n">schema</span><span class="o">.</span><span class="n">update</span><span class="p">(</span><span class="bp">self</span><span class="o">.</span><span class="n">_get_common_schema_fields</span><span class="p">())</span>
+        <span class="k">return</span> <span class="n">field_definitions</span><span class="p">,</span> <span class="n">schema</span>
+</pre></div>
+
+          </div>
+        </div>
+      </div>
+      <div class="sphinxsidebar">
+        <div class="sphinxsidebarwrapper">
+<div id="searchbox" style="display: none">
+  <h3>Quick search</h3>
+    <form class="search" action="../../search.html" method="get">
+      <input type="text" name="q" />
+      <input type="submit" value="Go" />
+      <input type="hidden" name="check_keywords" value="yes" />
+      <input type="hidden" name="area" value="default" />
+    </form>
+    <p class="searchtip" style="font-size: 90%">
+    Enter search terms or a module, class or function name.
+    </p>
+</div>
+<script type="text/javascript">$('#searchbox').show(0);</script>
+        </div>
+      </div>
+      <div class="clearer"></div>
+    </div>
+    <div class="related">
+      <h3>Navigation</h3>
+      <ul>
+        <li class="right" style="margin-right: 10px">
+          <a href="../../genindex.html" title="General Index"
+             >index</a></li>
+        <li class="right" >
+          <a href="../../py-modindex.html" title="Python Module Index"
+             >modules</a> |</li>
+        <li><a href="../../index.html">JSL 0.0.1 documentation</a> &raquo;</li>
+          <li><a href="../index.html" >Module code</a> &raquo;</li> 
+      </ul>
+    </div>
+    <div class="footer">
+        &copy; Copyright 2015, Anton Romanovich.
+      Created using <a href="http://sphinx-doc.org/">Sphinx</a> 1.2.3.
+    </div>
+  </body>
+</html>

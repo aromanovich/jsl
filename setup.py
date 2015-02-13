@@ -7,6 +7,7 @@ from setuptools import setup, find_packages
 
 
 __version__ = ''
+
 with open('jsl/__init__.py', 'r') as fd:
     reg = re.compile(r'__version__ = [\'"]([^\'"]*)[\'"]')
     for line in fd:
@@ -33,7 +34,7 @@ setup(
     license=open('LICENSE').read(),
     author='Anton Romanovich',
     author_email='anthony.romanovich@gmail.com',
-    # url='https://jsl.readthedocs.org',  # TODO
+    url='https://jsl.readthedocs.org',
     packages=find_packages(exclude=['tests']),
     classifiers=[
         'Development Status :: 4 - Beta',
