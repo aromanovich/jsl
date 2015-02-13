@@ -1,8 +1,14 @@
 # coding: utf-8
 from __future__ import unicode_literals
 
+import jsonschema
+
 from jsl.document import Document
 from jsl.fields import StringField, IntField, DocumentField, DateTimeField, ArrayField, OneOfField
+
+
+def check_field_schema(field):
+    return jsonschema.Draft4Validator.check_schema(field.get_schema())
 
 
 def test_to_schema():
@@ -43,6 +49,7 @@ def test_to_schema():
     }
     assert task_schema == expected_task_schema
     assert task_schema['properties']['author']['additionalProperties']
+    check_field_schema(Task)
 
 
 def test_document_options():
@@ -114,6 +121,7 @@ def test_recursive_definitions_1():
         '$ref': '#/definitions/test_document.A',
     }
     assert A.get_schema() == expected_schema
+    check_field_schema(A)
 
 
 def test_recursive_definitions_2():
@@ -168,6 +176,7 @@ def test_recursive_definitions_2():
     }
     schema = Main.get_schema()
     assert schema == expected_schema
+    check_field_schema(Main)
 
 
 def test_recursive_definitions_3():
@@ -210,6 +219,7 @@ def test_recursive_definitions_3():
         '$ref': '#/definitions/test_document.Main',
     }
     assert Main.get_schema() == expected_schema
+    check_field_schema(Main)
 
 
     class X(Document):
@@ -239,3 +249,4 @@ def test_recursive_definitions_3():
         },
     }
     assert Z.get_schema() == expected_schema
+    check_field_schema(Z)

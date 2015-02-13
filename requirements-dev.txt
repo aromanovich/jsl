@@ -1,3 +1,4 @@
+jsonschema==2.4.0
 coverage==3.7.1
 pytest==2.5.2
 pytest-cov==1.7.0

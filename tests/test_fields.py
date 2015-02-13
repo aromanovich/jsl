@@ -3,9 +3,14 @@ from __future__ import unicode_literals
 
 import mock
 import pytest
+import jsonschema
 
 from jsl import fields
 from jsl.document import Document
+
+
+def check_field_schema(field):
+    return jsonschema.Draft4Validator.check_schema(field.get_schema())
 
 
 class FieldMock(mock.MagicMock):
@@ -51,6 +56,7 @@ def test_string_field():
         'enum': ['a', 'b', 'c'],
         'title': 'Pururum',
     })
+    check_field_schema(f)
 
     with pytest.raises(ValueError) as e:
         fields.StringField(pattern='(')
@@ -63,6 +69,7 @@ def test_string_derived_fields():
         'type': 'string',
         'format': 'email',
     })
+    check_field_schema(f)
 
     f = fields.IPv4Type()
     assert f.get_definitions_and_schema() == ({}, {
@@ -89,6 +96,7 @@ def test_number_and_int_fields():
         'type': 'number',
         'multipleOf': 10,
     })
+    check_field_schema(f)
 
     f = fields.NumberField(minimum=0, maximum=10, exclusive_minimum=True)
     assert f.get_definitions_and_schema() == ({}, {
@@ -97,17 +105,20 @@ def test_number_and_int_fields():
         'minimum': 0,
         'maximum': 10,
     })
+    check_field_schema(f)
 
     f = fields.NumberField(enum=(1, 2, 3))
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'number',
         'enum': [1, 2, 3],
     })
+    check_field_schema(f)
 
     f = fields.IntField()
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'integer',
     })
+    check_field_schema(f)
 
 
 def test_array_field():
@@ -162,6 +173,7 @@ def test_dict_field_to_schema():
         ],
         'title': 'Hey!',
     })
+    check_field_schema(f)
 
     a_field_mock = FieldMock()
     b_field_mock = FieldMock()
@@ -236,6 +248,7 @@ def test_recursive_document_field():
         '$ref': '#/definitions/test_fields.Tree',
     }
     assert Tree.get_schema() == expected_schema
+    check_field_schema(Tree)
 
 
 def test_of_fields():
