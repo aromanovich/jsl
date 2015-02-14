@@ -101,7 +101,7 @@ class Document(object):
         """Returns a unique string to be used as a key for this document
         in the "definitions" schema section.
         """
-        return '{}.{}'.format(cls.__module__, cls.__name__)
+        return '{0}.{1}'.format(cls.__module__, cls.__name__)
 
     @classmethod
     def get_schema(cls):
@@ -134,7 +134,7 @@ class Document(object):
         if is_recursive:
             definitions_for_nested_fields = dict(definitions_for_nested_fields)
             definitions_for_nested_fields[definition_id] = {
-                '$ref': '#/definitions/{}'.format(definition_id),
+                '$ref': '#/definitions/{0}'.format(definition_id),
             }
 
         definitions = {}
@@ -160,6 +160,6 @@ class Document(object):
 
         if is_recursive:
             definitions[definition_id] = schema
-            return definitions, {'$ref': '#/definitions/{}'.format(definition_id)}
+            return definitions, {'$ref': '#/definitions/{0}'.format(definition_id)}
         else:
             return definitions, schema
