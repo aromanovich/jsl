@@ -41,7 +41,7 @@ class BaseField(object):
             Overrides some of the nested :class:`DocumentField`s schemas.
 
             If :class:`DocumentField`'s document definition id (see :meth:`get_definition_id`)
-            is in this dictionary, the definition will be used instead of its document schema.
+            is in this dictionary, its value will be used instead of the document's schema.
 
         :type definitions: dict
         :rtype: (dict, dict)
@@ -56,7 +56,7 @@ class BaseField(object):
         return schema
 
     def walk(self, through_document_fields=False, visited_documents=()):
-        """Yields nested fields in DFS order."""
+        """Yields nested fields in a DFS order."""
         yield self
 
 
@@ -163,7 +163,7 @@ class IPv4Type(StringField):
 
 
 class DateTimeField(StringField):
-    """A ISO 8601 formatted date-time field."""
+    """An ISO 8601 formatted date-time field."""
     def get_definitions_and_schema(self, definitions=None):
         definitions, schema = super(DateTimeField, self).get_definitions_and_schema(definitions=definitions)
         schema['format'] = 'date-time'
