@@ -13,14 +13,6 @@ def check_field_schema(field):
     return jsonschema.Draft4Validator.check_schema(field.get_schema())
 
 
-class FieldMock(mock.MagicMock):
-    def get_definitions_and_schema(self, definitions=None):
-        return definitions or {}, self.to_schema_asdw813s()
-
-    def get_schema(self):
-        return self.to_schema_asdw813s()
-
-
 def test_base_schema_field():
     f = fields.BaseSchemaField()
     assert not f.required
@@ -122,7 +114,7 @@ def test_number_and_int_fields():
 
 
 def test_array_field():
-    items_mock = FieldMock()
+    items_mock = fields.StringField()
 
     f = fields.ArrayField(items_mock)
     assert f.get_definitions_and_schema() == ({}, {
@@ -146,7 +138,7 @@ def test_array_field():
         'additionalItems': True,
     })
 
-    additional_items_mock = FieldMock()
+    additional_items_mock = fields.DictField()
     f = fields.ArrayField(items_mock, additional_items=additional_items_mock)
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'array',
@@ -154,8 +146,8 @@ def test_array_field():
         'additionalItems': additional_items_mock.get_schema(),
     })
 
-    item_1_mock = FieldMock()
-    item_2_mock = FieldMock()
+    item_1_mock = fields.NumberField()
+    item_2_mock = fields.ArrayField(fields.StringField())
     f = fields.ArrayField([item_1_mock, item_2_mock])
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'array',
@@ -175,9 +167,9 @@ def test_dict_field_to_schema():
     })
     check_field_schema(f)
 
-    a_field_mock = FieldMock()
-    b_field_mock = FieldMock()
-    c_field_mock = FieldMock()
+    a_field_mock = fields.StringField()
+    b_field_mock = fields.BooleanField()
+    c_field_mock = fields.EmailField()
     f = fields.DictField(properties={
         'a': a_field_mock,
         'b': b_field_mock,
@@ -197,7 +189,7 @@ def test_dict_field_to_schema():
         'maxProperties': 10,
     })
 
-    additional_prop_field_mock = FieldMock()
+    additional_prop_field_mock = fields.OneOfField((fields.StringField(), fields.NumberField()))
     f = fields.DictField(additional_properties=additional_prop_field_mock)
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'object',
@@ -210,6 +202,24 @@ def test_dict_field_to_schema():
     with pytest.raises(ValueError) as e:
         f.get_definitions_and_schema()
     assert str(e.value) == 'Invalid regular expression: unbalanced parenthesis'
+
+    # test nested required fields
+    f = fields.DictField(properties={
+        'a': fields.StringField(required=True),
+    }, pattern_properties={
+        'c*': fields.StringField(required=True),
+    })
+    assert f.get_definitions_and_schema() == ({}, {
+        'type': 'object',
+        'properties': {
+            'a': {'type': 'string'},
+        },
+        'patternProperties': {
+            'c*': {'type': 'string'},
+        },
+        'required': ['a'],
+    })
+    check_field_schema(f)
 
 
 def test_document_field():
@@ -252,9 +262,9 @@ def test_recursive_document_field():
 
 
 def test_of_fields():
-    field_1_mock = FieldMock()
-    field_2_mock = FieldMock()
-    field_3_mock = FieldMock()
+    field_1_mock = fields.StringField()
+    field_2_mock = fields.BooleanField()
+    field_3_mock = fields.ArrayField(fields.IntField())
     of_fields = [field_1_mock, field_2_mock, field_3_mock]
 
     f = fields.OneOfField(of_fields)

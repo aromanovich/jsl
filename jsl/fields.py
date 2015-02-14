@@ -338,29 +338,33 @@ class DictField(BaseSchemaField):
     def _process_properties(properties, definitions=None):
         nested_definitions = {}
         schema = {}
+        required = []
         for prop, field in properties.iteritems():
             field_definitions, field_schema = field.get_definitions_and_schema(
                 definitions=definitions)
+            if field.required:
+                required.append(prop)
             schema[prop] = field_schema
             nested_definitions.update(field_definitions)
-        return nested_definitions, schema
+        return nested_definitions, required, schema
 
     def get_definitions_and_schema(self, definitions=None):
-        # TODO required!1
         nested_definitions = {}
         schema = {'type': 'object'}
         schema.update(self._get_common_schema_fields())
 
         if self.properties is not None:
-            properties_definitions, properties_schema = self._process_properties(
+            properties_definitions, properties_required, properties_schema = self._process_properties(
                 self.properties, definitions=definitions)
             schema['properties'] = properties_schema
+            if properties_required:
+                schema['required'] = properties_required
             nested_definitions.update(properties_definitions)
 
         if self.pattern_properties is not None:
             for key in self.pattern_properties.iterkeys():
                 _validate_regex(key)
-            properties_definitions, properties_schema = self._process_properties(
+            properties_definitions, _, properties_schema = self._process_properties(
                 self.pattern_properties, definitions=definitions)
             schema['patternProperties'] = properties_schema
             nested_definitions.update(properties_definitions)
