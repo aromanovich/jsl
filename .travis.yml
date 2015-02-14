@@ -5,6 +5,7 @@ python:
 install:
   - python setup.py install
   - pip install -r requirements-dev.txt
+  - pip install python-coveralls
 script:
   - ./test.sh
 after_success:
