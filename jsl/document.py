@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import inspect
 
 from . import registry
-from .fields import BaseField, DocumentField
+from .fields import BaseField, DocumentField, DictField
 
 
 def set_owner_to_document_fields(cls):
@@ -14,15 +14,27 @@ def set_owner_to_document_fields(cls):
                 field_.set_owner(cls)
 
 
+class Options(object):
+    """
+    A container for options. Its primary purpose is to create
+    an instance of options for every instance of a document or a field.
+    """
+    def __init__(self, additional_properties=False, pattern_properties=None,
+                 min_properties=None, max_properties=None,
+                 title=None, description=None,
+                 default=None, enum=None, schema_uri='http://json-schema.org/draft-04/schema#'):
+        self.pattern_properties = pattern_properties
+        self.additional_properties = additional_properties
+        self.min_properties = min_properties
+        self.max_properties = max_properties
+        self.title = title
+        self.description = description
+        self.enum = enum
+        self.default = default
+        self.schema_uri = schema_uri
+
+
 class DocumentMeta(type):
-    """
-    A metaclass for :class:`Document`s. Does some bookkeeping:
-
-    * registers a document in :mod:`registry`
-    * sets owner for a document's :class:`DocumentField`s
-    * creates ``_options`` and ``_fields`` attributes
-    """
-
     def __new__(mcs, name, bases, attrs):
         fields = {}
 
@@ -38,6 +50,18 @@ class DocumentMeta(type):
         options = mcs._read_options(name, bases, attrs)
         attrs['_fields'] = fields
         attrs['_options'] = options
+        attrs['_field'] = DictField(
+            properties=fields,
+            pattern_properties=options.pattern_properties,
+            additional_properties=options.additional_properties,
+            min_properties=options.min_properties,
+            max_properties=options.max_properties,
+            title=options.title,
+            description=options.description,
+            enum=options.enum,
+            default=options.default
+        )
+
         klass = type.__new__(mcs, name, bases, attrs)
         registry.put_document(klass.__name__, klass, module=klass.__module__)
         set_owner_to_document_fields(klass)
@@ -65,33 +89,6 @@ class DocumentMeta(type):
         return Options(**options_members)
 
 
-class Options(object):
-    """
-    A container for options. Its primary purpose is to create
-    an instance of options for every instance of a document or a field.
-    """
-    def __init__(self, additional_properties=False, title=None, description=None, id=None,
-                 schema_uri='http://json-schema.org/draft-04/schema#'):
-        self.additional_properties = additional_properties
-        self.title = title
-        self.description = description
-        self.id = id
-        self.schema_uri = schema_uri
-
-    def get_schema(self):
-        schema = {
-            'type': 'object',
-            'additionalProperties': self.additional_properties,
-        }
-        if self.title is not None:
-            schema['title'] = self.title
-        if self.description is not None:
-            schema['description'] = self.description
-        if self.id is not None:
-            schema['id'] = self.id
-        return schema
-
-
 class Document(object):
     """A document"""
     __metaclass__ = DocumentMeta
@@ -99,10 +96,9 @@ class Document(object):
     @classmethod
     def walk(cls, through_document_fields=False, visited_documents=()):
         """Yields nested fields in DFS order."""
-        for field in cls._fields.itervalues():
-            for field_ in field.walk(through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
-                yield field_
+        for field_ in cls._field.walk(through_document_fields=through_document_fields,
+                                      visited_documents=visited_documents):
+            yield field_
 
     @classmethod
     def _is_recursive(cls):
@@ -156,24 +152,7 @@ class Document(object):
                 '$ref': '#/definitions/{0}'.format(definition_id),
             }
 
-        definitions = {}
-        properties = {}
-        required = []
-        for name, field in cls._fields.iteritems():
-            field_definitions, field_schema = field.get_definitions_and_schema(
-                definitions=definitions_for_nested_fields)
-            properties[name] = field_schema
-            definitions.update(field_definitions)
-            if field.required:
-                required.append(name)
-
-        schema = cls._options.get_schema()
-        schema.update({
-            'type': 'object',
-            'properties': properties,
-        })
-        if required:
-            schema['required'] = required
+        definitions, schema = cls._field.get_definitions_and_schema(definitions=definitions_for_nested_fields)
 
         if is_recursive:
             definitions[definition_id] = schema

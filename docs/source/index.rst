@@ -6,44 +6,28 @@ Release v\ |version|.
 Introduction
 ------------
 
-JSL is a Python DSL for describing JSON schemas.
+JSON Schema (and its Python implementation) is a wonderful tool for data validation.
 
-JSL stands for JSON Schema Language.
+But schemas can be tiresome to write, especially large ones. The standard is not always
+intuitive and leaves some places to make a mistake. It is easy to mix ``maxItems`` keyword with ``maxLength``,
+or to forget to set ``additionalProperties`` to false, and so on.
+
+The syntax is not very concise and large or recursive schema definitions are not easy to comprehend.
+
+JSL is a Python library that adresses this issues by providing a DSL for describing JSON schemas.
+The DSL allows you to define a JSON schema in the way similar to how you define a model using an ORM --
+using classes and fields and relying on some metaclass-magic under the hood.
 
 Examples
 --------
 
-    >>> infer('''
-    ... {% for row in items|batch(3, '&nbsp;') %}
-    ...     {% for column in row %}
-    ...         {% if column.has_title %}
-    ...             {{ column.title }}
-    ...         {% else %}
-    ...             {{ column.desc|truncate(10) }}
-    ...         {% endif %}
-    ...     {% endfor %}
-    ... {% endfor %}
-    ... ''')
-    {
-        'items': [{
-            'desc': <scalar>,
-            'has_title': <unknown>,
-            'title': <scalar>
-        }]
-    }
+    # TODO
+
 
 .. links
 
-.. _opening a ticket: https://github.com/aromanovich/jinja2schema/issues
-.. _Jinja2: http://jinja.pocoo.org/docs/
-.. _Alpaca: http://www.alpacajs.org/
-.. _angular-schema-form: https://github.com/Textalk/angular-schema-form
-.. _JSON Editor: https://github.com/jdorn/json-editor
-.. _JSON schema: http://json-schema.org/
-
-How It Works
-------------
-
+.. _Python implementation: https://python-jsonschema.readthedocs.org/en/latest/
+.. _JSON Schema: http://json-schema.org/
 
 Installation
 ------------

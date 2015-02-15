@@ -27,7 +27,6 @@ def test_to_schema():
         class Options(object):
             title = 'Task'
             description = 'A task.'
-            id = 'http://x.y.z/rootschema.json#'
 
         name = StringField(required=True, min_length=5)
         type = StringField(required=True, enum=['TYPE_1', 'TYPE_2'])
@@ -38,7 +37,6 @@ def test_to_schema():
     task_schema = Task.get_schema()
     expected_task_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
-        'id': 'http://x.y.z/rootschema.json#',
         'type': 'object',
         'title': 'Task',
         'description': 'A task.',
