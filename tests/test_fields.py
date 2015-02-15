@@ -236,6 +236,7 @@ def test_recursive_document_field():
         ])
 
     expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': {
             'test_fields.Tree': {
                 'type': 'object',

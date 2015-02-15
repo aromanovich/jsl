@@ -26,6 +26,8 @@ def test_to_schema():
     class Task(Document):
         class Options(object):
             title = 'Task'
+            description = 'A task.'
+            id = 'http://x.y.z/rootschema.json#'
 
         name = StringField(required=True, min_length=5)
         type = StringField(required=True, enum=['TYPE_1', 'TYPE_2'])
@@ -35,8 +37,11 @@ def test_to_schema():
 
     task_schema = Task.get_schema()
     expected_task_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'id': 'http://x.y.z/rootschema.json#',
         'type': 'object',
         'title': 'Task',
+        'description': 'A task.',
         'additionalProperties': False,
         'required': ['created_at', 'type', 'name'],
         'properties': {
@@ -85,6 +90,7 @@ def test_recursive_definitions_1():
         id = StringField()
 
     expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': {
             'test_document.A': {
                 'type': 'object',
@@ -141,6 +147,7 @@ def test_recursive_definitions_2():
         c = DocumentField('C')
 
     expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': {
             'test_document.A': {
                 'type': 'object',
@@ -215,6 +222,7 @@ def test_recursive_definitions_3():
         }
     }
     expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': expected_definitions,
         '$ref': '#/definitions/test_document.Main',
     }
@@ -232,6 +240,7 @@ def test_recursive_definitions_3():
         ])
 
     expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': expected_definitions,
         'type': 'object',
         'additionalProperties': False,

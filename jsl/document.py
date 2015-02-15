@@ -54,25 +54,42 @@ class DocumentMeta(type):
         for base in reversed(bases):
             if hasattr(base, '_options'):
                 for key, value in inspect.getmembers(base._options):
-                    if not key.startswith('_'):
+                    if not key.startswith('_') and key != 'get_schema':
                         options_members[key] = value
 
         if 'Options' in attrs:
             for key, value in inspect.getmembers(attrs['Options']):
-                if not key.startswith('_'):
+                if not key.startswith('_') and key != 'get_schema':
                     options_members[key] = value
 
-        return DocumentOptions(**options_members)
+        return Options(**options_members)
 
 
-class DocumentOptions(object):
+class Options(object):
     """
-    A container for document options. Its primary purpose is to create
-    an instance of a document's options for every instance of a document.
+    A container for options. Its primary purpose is to create
+    an instance of options for every instance of a document or a field.
     """
-    def __init__(self, additional_properties=False, title=None):
+    def __init__(self, additional_properties=False, title=None, description=None, id=None,
+                 schema_uri='http://json-schema.org/draft-04/schema#'):
         self.additional_properties = additional_properties
         self.title = title
+        self.description = description
+        self.id = id
+        self.schema_uri = schema_uri
+
+    def get_schema(self):
+        schema = {
+            'type': 'object',
+            'additionalProperties': self.additional_properties,
+        }
+        if self.title is not None:
+            schema['title'] = self.title
+        if self.description is not None:
+            schema['description'] = self.description
+        if self.id is not None:
+            schema['id'] = self.id
+        return schema
 
 
 class Document(object):
@@ -109,6 +126,8 @@ class Document(object):
         definitions, schema = cls.get_definitions_and_schema()
         if definitions:
             schema['definitions'] = definitions
+        if cls._options.schema_uri is not None:
+            schema['$schema'] = cls._options.schema_uri
         return schema
 
     @classmethod
@@ -148,15 +167,13 @@ class Document(object):
             if field.required:
                 required.append(name)
 
-        schema = {
+        schema = cls._options.get_schema()
+        schema.update({
             'type': 'object',
-            'additionalProperties': cls._options.additional_properties,
             'properties': properties,
-        }
+        })
         if required:
             schema['required'] = required
-        if cls._options.title is not None:
-            schema['title'] = cls._options.title
 
         if is_recursive:
             definitions[definition_id] = schema

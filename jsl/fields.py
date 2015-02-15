@@ -317,9 +317,9 @@ class DictField(BaseSchemaField):
         Properties match against these regular expressions, and for any that match,
         the property is described by the corresponding field schema.
     :type pattern_properties: dict from str to :class:`BaseField`
-    :param additional_propertiess:
+    :param additional_properties:
         Describes properties that are not described by the ``properties`` or ``pattern_properties``.
-    :type additional_propertiess: bool or :class:`BaseField`
+    :type additional_properties: bool or :class:`BaseField`
     :param min_properties:
         A minimum number of properties.
     :param max_properties:
@@ -340,8 +340,7 @@ class DictField(BaseSchemaField):
         schema = {}
         required = []
         for prop, field in properties.iteritems():
-            field_definitions, field_schema = field.get_definitions_and_schema(
-                definitions=definitions)
+            field_definitions, field_schema = field.get_definitions_and_schema(definitions=definitions)
             if field.required:
                 required.append(prop)
             schema[prop] = field_schema
