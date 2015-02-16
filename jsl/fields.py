@@ -30,7 +30,7 @@ class BaseField(object):
     def __init__(self, required=False):
         self.required = required
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):  # pragma: no cover
         """Returns a tuple of two elements.
 
         The second element is a JSON schema of the data described by this field,
@@ -126,7 +126,7 @@ class StringField(BaseSchemaField):
         self.min_length = min_length
         super(StringField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         schema = {'type': 'string'}
         schema.update(self._get_common_schema_fields())
         if self.pattern:
@@ -140,7 +140,7 @@ class StringField(BaseSchemaField):
 
 class BooleanField(BaseSchemaField):
     """A boolean field."""
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         schema = {'type': 'boolean'}
         schema.update(self._get_common_schema_fields())
         return {}, schema
@@ -148,32 +148,32 @@ class BooleanField(BaseSchemaField):
 
 class EmailField(StringField):
     """An email field."""
-    def get_definitions_and_schema(self, definitions=None):
-        definitions, schema = super(EmailField, self).get_definitions_and_schema(definitions=definitions)
+    def get_definitions_and_schema(self, ref_documents=None):
+        definitions, schema = super(EmailField, self).get_definitions_and_schema(ref_documents=ref_documents)
         schema['format'] = 'email'
         return definitions, schema
 
 
 class IPv4Type(StringField):
     """An IPv4 field."""
-    def get_definitions_and_schema(self, definitions=None):
-        definitions, schema = super(IPv4Type, self).get_definitions_and_schema(definitions=definitions)
+    def get_definitions_and_schema(self, ref_documents=None):
+        definitions, schema = super(IPv4Type, self).get_definitions_and_schema(ref_documents=ref_documents)
         schema['format'] = 'ipv4'
         return definitions, schema
 
 
 class DateTimeField(StringField):
     """An ISO 8601 formatted date-time field."""
-    def get_definitions_and_schema(self, definitions=None):
-        definitions, schema = super(DateTimeField, self).get_definitions_and_schema(definitions=definitions)
+    def get_definitions_and_schema(self, ref_documents=None):
+        definitions, schema = super(DateTimeField, self).get_definitions_and_schema(ref_documents=ref_documents)
         schema['format'] = 'date-time'
         return definitions, schema
 
 
 class UriField(StringField):
     """A URI field."""
-    def get_definitions_and_schema(self, definitions=None):
-        definitions, schema = super(UriField, self).get_definitions_and_schema(definitions=definitions)
+    def get_definitions_and_schema(self, ref_documents=None):
+        definitions, schema = super(UriField, self).get_definitions_and_schema(ref_documents=ref_documents)
         schema['format'] = 'uri'
         return definitions, schema
 
@@ -203,7 +203,7 @@ class NumberField(BaseSchemaField):
         self.exclusive_maximum = exclusive_maximum
         super(NumberField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         schema = {'type': self._NUMBER_TYPE}
         schema.update(self._get_common_schema_fields())
         if self.multiple_of is not None:
@@ -258,18 +258,18 @@ class ArrayField(BaseSchemaField):
         self.additional_items = additional_items
         super(ArrayField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         if isinstance(self.items, (list, tuple)):
             nested_definitions = {}
             nested_schema = []
             for item in self.items:
                 item_definitions, item_schema = item.get_definitions_and_schema(
-                    definitions=definitions)
+                    ref_documents=ref_documents)
                 nested_definitions.update(item_definitions)
                 nested_schema.append(item_schema)
         else:
             nested_definitions, nested_schema = self.items.get_definitions_and_schema(
-                definitions=definitions)
+                ref_documents=ref_documents)
         schema = {
             'type': 'array',
             'items': nested_schema,
@@ -287,7 +287,7 @@ class ArrayField(BaseSchemaField):
                 schema['additionalItems'] = self.additional_items
             else:
                 items_definitions, items_schema = self.additional_items.get_definitions_and_schema(
-                    definitions=definitions)
+                    ref_documents=ref_documents)
                 schema['additionalItems'] = items_schema
                 nested_definitions.update(items_definitions)
 
@@ -335,26 +335,26 @@ class DictField(BaseSchemaField):
         super(DictField, self).__init__(**kwargs)
 
     @staticmethod
-    def _process_properties(properties, definitions=None):
+    def _process_properties(properties, ref_documents=None):
         nested_definitions = {}
         schema = {}
         required = []
         for prop, field in properties.iteritems():
-            field_definitions, field_schema = field.get_definitions_and_schema(definitions=definitions)
+            field_definitions, field_schema = field.get_definitions_and_schema(ref_documents=ref_documents)
             if field.required:
                 required.append(prop)
             schema[prop] = field_schema
             nested_definitions.update(field_definitions)
         return nested_definitions, required, schema
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         nested_definitions = {}
         schema = {'type': 'object'}
         schema.update(self._get_common_schema_fields())
 
         if self.properties is not None:
             properties_definitions, properties_required, properties_schema = self._process_properties(
-                self.properties, definitions=definitions)
+                self.properties, ref_documents=ref_documents)
             schema['properties'] = properties_schema
             if properties_required:
                 schema['required'] = properties_required
@@ -364,7 +364,7 @@ class DictField(BaseSchemaField):
             for key in self.pattern_properties.iterkeys():
                 _validate_regex(key)
             properties_definitions, _, properties_schema = self._process_properties(
-                self.pattern_properties, definitions=definitions)
+                self.pattern_properties, ref_documents=ref_documents)
             schema['patternProperties'] = properties_schema
             nested_definitions.update(properties_definitions)
 
@@ -373,7 +373,7 @@ class DictField(BaseSchemaField):
                 schema['additionalProperties'] = self.additional_properties
             else:
                 properties_definitions, properties_schema = self.additional_properties.get_definitions_and_schema(
-                    definitions=definitions)
+                    ref_documents=ref_documents)
                 schema['additionalProperties'] = properties_schema
                 nested_definitions.update(properties_definitions)
 
@@ -407,11 +407,11 @@ class BaseOfField(BaseSchemaField):
         self.fields = list(fields)
         super(BaseOfField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         nested_definitions = {}
         one_of = []
         for field in self.fields:
-            field_definitions, field_schema = field.get_definitions_and_schema(definitions=definitions)
+            field_definitions, field_schema = field.get_definitions_and_schema(ref_documents=ref_documents)
             nested_definitions.update(field_definitions)
             one_of.append(field_schema)
         schema = {self._KEYWORD: one_of}
@@ -459,9 +459,9 @@ class NotField(BaseSchemaField):
         self.field = field
         super(NotField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         field_definitions, field_schema = self.field.get_definitions_and_schema(
-            definitions=definitions)
+            ref_documents=ref_documents)
         schema = {'not': field_schema}
         schema.update(self._get_common_schema_fields())
         return field_definitions, schema
@@ -473,9 +473,10 @@ class DocumentField(BaseField):
     :param document_cls:
         a string (dot-separated path to document class, i.e. 'app.resources.User') or :class:`Document`
     """
-    def __init__(self, document_cls, **kwargs):
+    def __init__(self, document_cls, as_ref=False, **kwargs):
         self._document_cls = document_cls
         self.owner_cls = None
+        self.as_ref = as_ref
         super(DocumentField, self).__init__(**kwargs)
 
     def walk(self, through_document_fields=False, visited_documents=()):
@@ -485,12 +486,17 @@ class DocumentField(BaseField):
                                                 visited_documents=visited_documents + (self.document_cls,)):
                 yield field
 
-    def get_definitions_and_schema(self, definitions=None):
+    def get_definitions_and_schema(self, ref_documents=None):
         definition_id = self.document_cls._get_definition_id()
-        if definitions and definition_id in definitions:
-            return {}, definitions[definition_id]
+        if ref_documents and self.document_cls in ref_documents:
+            return {}, {'$ref': '#/definitions/{0}'.format(definition_id)}
         else:
-            return self.document_cls.get_definitions_and_schema(definitions=definitions)
+            document_definitions, document_schema = self.document_cls.get_definitions_and_schema(ref_documents=ref_documents)
+            if self.as_ref:
+                document_definitions[definition_id] = document_schema
+                return document_definitions, {'$ref': '#/definitions/{0}'.format(definition_id)}
+            else:
+                return document_definitions, document_schema
 
     def set_owner(self, owner_cls):
         self.owner_cls = owner_cls

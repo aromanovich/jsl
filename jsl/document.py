@@ -127,34 +127,31 @@ class Document(object):
         return schema
 
     @classmethod
-    def get_definitions_and_schema(cls, definitions=None):
+    def get_definitions_and_schema(cls, ref_documents=None):
         """Returns a tuple of two elements.
 
         The second element is a JSON schema of the document, and the first is a dictionary
         containing definitions that are referenced from the schema.
 
-        :arg definitions:
+        :arg ref_documents:
             Overrides some of the nested :class:`DocumentField`s schemas.
 
             If :class:`DocumentField`'s document definition id (see :meth:`get_definition_id`)
             is in this dictionary, the definition will be used instead of its document schema.
 
-        :type definitions: dict
+        :type ref_documents: dict
         :rtype: (dict, dict)
         """
         is_recursive = cls._is_recursive()
-        definition_id = cls._get_definition_id()
-
-        definitions_for_nested_fields = definitions or {}
-        if is_recursive:
-            definitions_for_nested_fields = dict(definitions_for_nested_fields)
-            definitions_for_nested_fields[definition_id] = {
-                '$ref': '#/definitions/{0}'.format(definition_id),
-            }
-
-        definitions, schema = cls._field.get_definitions_and_schema(definitions=definitions_for_nested_fields)
 
         if is_recursive:
+            ref_documents = set(ref_documents) if ref_documents else set()
+            ref_documents.add(cls)
+
+        definitions, schema = cls._field.get_definitions_and_schema(ref_documents=ref_documents)
+
+        if is_recursive:
+            definition_id = cls._get_definition_id()
             definitions[definition_id] = schema
             return definitions, {'$ref': '#/definitions/{0}'.format(definition_id)}
         else:

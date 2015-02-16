@@ -28,8 +28,16 @@ def test_base_schema_field():
     f = fields.BaseSchemaField(default=lambda: 123)
     assert f.default == 123
 
-    f = fields.BaseSchemaField(title='Description')
-    assert f.title == 'Description'
+    f = fields.BaseSchemaField(title='Title', description='Description',
+                               enum=lambda: [1, 2, 3], default=lambda: 123)
+    assert f.title == 'Title'
+
+    assert f._get_common_schema_fields() == {
+        'title': 'Title',
+        'description': 'Description',
+        'enum': [1, 2, 3],
+        'default': 123,
+    }
 
 
 def test_string_field():
@@ -221,11 +229,32 @@ def test_dict_field_to_schema():
     })
     check_field_schema(f)
 
+    # TODO test DictField.walk
+
 
 def test_document_field():
-    document_cls_mock = mock.MagicMock()
+    document_cls_mock = mock.Mock()
+    expected_schema = mock.Mock()
+    attrs = {
+        'get_definitions_and_schema.return_value': ({}, expected_schema),
+        '_get_definition_id.return_value': 'document.Document',
+    }
+    document_cls_mock.configure_mock(**attrs)
+
     f = fields.DocumentField(document_cls_mock)
-    assert f.get_definitions_and_schema() == document_cls_mock.get_definitions_and_schema()
+    definitions, schema = f.get_definitions_and_schema()
+    assert not definitions
+    assert schema == expected_schema
+
+    definitions, schema = f.get_definitions_and_schema(ref_documents=set([document_cls_mock]))
+    assert not definitions
+    assert schema == {'$ref': '#/definitions/document.Document'}
+
+    f = fields.DocumentField(document_cls_mock, as_ref=True)
+    definitions, schema = f.get_definitions_and_schema()
+    assert definitions == {'document.Document': expected_schema}
+    assert schema == {'$ref': '#/definitions/document.Document'}
+
 
 
 def test_recursive_document_field():
@@ -249,12 +278,12 @@ def test_recursive_document_field():
                                 'items': {'$ref': '#/definitions/test_fields.Tree'},
                             },
                             {
-                                'type': 'string'
+                                'type': 'string',
                             },
-                        ]
-                    }
-                }
-            }
+                        ],
+                    },
+                },
+            },
         },
         '$ref': '#/definitions/test_fields.Tree',
     }
