@@ -26,6 +26,9 @@ def _validate_regex(regex):
 class BaseField(object):
     """A base class for fields in a JSL :class:`.document.Document`.
     Instances of this class may be added to a document to define its properties.
+
+    :param required:
+        If the field is required, defaults to False.
     """
     def __init__(self, required=False):
         self.required = required
@@ -55,7 +58,7 @@ class BaseField(object):
             schema['definitions'] = definitions
         return schema
 
-    def walk(self, through_document_fields=False, visited_documents=()):
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
         """Yields nested fields in a DFS order."""
         yield self
 
@@ -66,13 +69,13 @@ class BaseSchemaField(BaseField):
     :param required:
         If the field is required, defaults to False.
     :param default:
-        (optional) The default value for this field. May be a callable.
+        The default value for this field. May be a callable.
     :param enum:
-        (optional) A list of valid choices. May be a callable.
+        A list of valid choices. May be a callable.
     :param title:
-        (optional) A short explanation about the purpose of the data described by this field.
+        A short explanation about the purpose of the data described by this field.
     :param description:
-        (optional) A detailed explanation about the purpose of the data described by this field.
+        A detailed explanation about the purpose of the data described by this field.
     """
     def __init__(self, default=None, enum=None, title=None, description=None, **kwargs):
         self.title = title
@@ -108,20 +111,37 @@ class BaseSchemaField(BaseField):
         return rv
 
 
+class BooleanField(BaseSchemaField):
+    """A boolean field."""
+    def get_definitions_and_schema(self, ref_documents=None):
+        schema = {'type': 'boolean'}
+        schema.update(self._get_common_schema_fields())
+        return {}, schema
+
+
 class StringField(BaseSchemaField):
     """A string field.
 
-    :param regex:
-        (optional) A regular expression (ECMA 262) that a string value must match.
+    :param pattern:
+        A regular expression (ECMA 262) that a string value must match.
+    :type pattern: string
+    :param format:
+        A semantic format of the string (for example, "date-time", "email", or "uri").
+    :type format: string
     :param min_length:
-        (optional) A minimum length.
+        A minimum length.
+    :type min_length: int
     :param max_length:
-        (optional) A maximum length.
+        A maximum length.
+    :type max_length: int
     """
-    def __init__(self, pattern=None, min_length=None, max_length=None, **kwargs):
+    _FORMAT = None
+
+    def __init__(self, pattern=None, format=None, min_length=None, max_length=None, **kwargs):
         self.pattern = pattern
         if self.pattern is not None:
             _validate_regex(self.pattern)
+        self.format = format or self._FORMAT
         self.max_length = max_length
         self.min_length = min_length
         super(StringField, self).__init__(**kwargs)
@@ -135,47 +155,29 @@ class StringField(BaseSchemaField):
             schema['minLength'] = self.min_length
         if self.max_length is not None:
             schema['maxLength'] = self.max_length
-        return {}, schema
-
-
-class BooleanField(BaseSchemaField):
-    """A boolean field."""
-    def get_definitions_and_schema(self, ref_documents=None):
-        schema = {'type': 'boolean'}
-        schema.update(self._get_common_schema_fields())
+        if self.format is not None:
+            schema['format'] = self.format
         return {}, schema
 
 
 class EmailField(StringField):
     """An email field."""
-    def get_definitions_and_schema(self, ref_documents=None):
-        definitions, schema = super(EmailField, self).get_definitions_and_schema(ref_documents=ref_documents)
-        schema['format'] = 'email'
-        return definitions, schema
+    _FORMAT = 'email'
 
 
 class IPv4Type(StringField):
     """An IPv4 field."""
-    def get_definitions_and_schema(self, ref_documents=None):
-        definitions, schema = super(IPv4Type, self).get_definitions_and_schema(ref_documents=ref_documents)
-        schema['format'] = 'ipv4'
-        return definitions, schema
+    _FORMAT = 'ipv4'
 
 
 class DateTimeField(StringField):
     """An ISO 8601 formatted date-time field."""
-    def get_definitions_and_schema(self, ref_documents=None):
-        definitions, schema = super(DateTimeField, self).get_definitions_and_schema(ref_documents=ref_documents)
-        schema['format'] = 'date-time'
-        return definitions, schema
+    _FORMAT = 'date-time'
 
 
 class UriField(StringField):
     """A URI field."""
-    def get_definitions_and_schema(self, ref_documents=None):
-        definitions, schema = super(UriField, self).get_definitions_and_schema(ref_documents=ref_documents)
-        schema['format'] = 'uri'
-        return definitions, schema
+    _FORMAT = 'uri'
 
 
 class NumberField(BaseSchemaField):
@@ -293,7 +295,7 @@ class ArrayField(BaseSchemaField):
 
         return nested_definitions, schema
 
-    def walk(self, through_document_fields=False, visited_documents=()):
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
         yield self
         if isinstance(self.items, (list, tuple)):
             for field in self.items:
@@ -384,7 +386,7 @@ class DictField(BaseSchemaField):
 
         return nested_definitions, schema
 
-    def walk(self, through_document_fields=False, visited_documents=()):
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
         fields_to_visit = []
         if self.properties is not None:
             fields_to_visit.append(self.properties.itervalues())
@@ -418,7 +420,7 @@ class BaseOfField(BaseSchemaField):
         schema.update(self._get_common_schema_fields())
         return nested_definitions, schema
 
-    def walk(self, through_document_fields=False, visited_documents=()):
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
         yield self
         for field in self.fields:
             for field_ in field.walk(through_document_fields=through_document_fields,
@@ -468,10 +470,15 @@ class NotField(BaseSchemaField):
 
 
 class DocumentField(BaseField):
-    """A reference to another (or the same) document.
+    """A reference to a nested document.
 
     :param document_cls:
-        a string (dot-separated path to document class, i.e. 'app.resources.User') or :class:`Document`
+        A string (dot-separated path to document class, i.e. 'app.resources.User'),
+        :data:`RECURSIVE_REFERENCE_CONSTANT` or a :class:`Document`
+    :param as_ref:
+        If true, ``document_cls``'s schema is placed into the definitions section, and
+        the field schema is just a reference to it: ``{"$ref": "#/definitions/..."}``.
+        Makes a resulting schema more readable.
     """
     def __init__(self, document_cls, as_ref=False, **kwargs):
         self._document_cls = document_cls
@@ -479,11 +486,11 @@ class DocumentField(BaseField):
         self.as_ref = as_ref
         super(DocumentField, self).__init__(**kwargs)
 
-    def walk(self, through_document_fields=False, visited_documents=()):
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
         yield self
         if through_document_fields and self.document_cls not in visited_documents:
             for field in self.document_cls.walk(through_document_fields=through_document_fields,
-                                                visited_documents=visited_documents + (self.document_cls,)):
+                                                visited_documents=visited_documents | set([self.document_cls])):
                 yield field
 
     def get_definitions_and_schema(self, ref_documents=None):
@@ -491,7 +498,8 @@ class DocumentField(BaseField):
         if ref_documents and self.document_cls in ref_documents:
             return {}, {'$ref': '#/definitions/{0}'.format(definition_id)}
         else:
-            document_definitions, document_schema = self.document_cls.get_definitions_and_schema(ref_documents=ref_documents)
+            document_definitions, document_schema = self.document_cls.get_definitions_and_schema(
+                ref_documents=ref_documents)
             if self.as_ref:
                 document_definitions[definition_id] = document_schema
                 return document_definitions, {'$ref': '#/definitions/{0}'.format(definition_id)}

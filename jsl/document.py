@@ -9,7 +9,7 @@ from .fields import BaseField, DocumentField, DictField
 
 def set_owner_to_document_fields(cls):
     for field in cls._fields.itervalues():
-        for field_ in field.walk(through_document_fields=False, visited_documents=(cls,)):
+        for field_ in field.walk(through_document_fields=False, visited_documents=set([cls])):
             if isinstance(field_, DocumentField):
                 field_.set_owner(cls)
 
@@ -17,7 +17,7 @@ def set_owner_to_document_fields(cls):
 class Options(object):
     """
     A container for options. Its primary purpose is to create
-    an instance of options for every instance of a document or a field.
+    an instance of options for every instance of a :class:`Document`.
     """
     def __init__(self, additional_properties=False, pattern_properties=None,
                  min_properties=None, max_properties=None,
@@ -94,16 +94,24 @@ class Document(object):
     __metaclass__ = DocumentMeta
 
     @classmethod
-    def walk(cls, through_document_fields=False, visited_documents=()):
-        """Yields nested fields in DFS order."""
+    def walk(cls, through_document_fields=False, visited_documents=frozenset()):
+        """Yields nested fields in DFS order.
+
+        :param through_document_fields:
+            If true, visits fields of the nested documents.
+        :type through_document_fields: bool
+        :param visited_documents:
+            Keeps track of already visited document classes.
+        :type visited_documents: set
+        """
         for field_ in cls._field.walk(through_document_fields=through_document_fields,
-                                      visited_documents=visited_documents):
+                                      visited_documents=visited_documents | set([cls])):
             yield field_
 
     @classmethod
     def _is_recursive(cls):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
-        for field in cls.walk(through_document_fields=True, visited_documents=(cls,)):
+        for field in cls.walk(through_document_fields=True, visited_documents=set([cls])):
             if isinstance(field, DocumentField):
                 if field.document_cls == cls:
                     return True
@@ -134,12 +142,10 @@ class Document(object):
         containing definitions that are referenced from the schema.
 
         :arg ref_documents:
-            Overrides some of the nested :class:`DocumentField`s schemas.
-
-            If :class:`DocumentField`'s document definition id (see :meth:`get_definition_id`)
-            is in this dictionary, the definition will be used instead of its document schema.
-
-        :type ref_documents: dict
+            If subclass of :class:`Document` is in this set, all :class:`DocumentField` s
+            pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
+            Note: resulting definitions will not contain schema for this document.
+        :type ref_documents: set
         :rtype: (dict, dict)
         """
         is_recursive = cls._is_recursive()
