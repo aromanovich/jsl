@@ -18,11 +18,23 @@ class Options(object):
     """
     A container for options. Its primary purpose is to create
     an instance of options for every instance of a :class:`Document`.
+
+    All the arguments are the same and work exactly as for :class:`.fields.DictField`
+    except these:
+
+    :param definition_id:
+        A unique string to be used as a key for this document in the "definitions"
+        schema section. If not specified, will be generated using module and class names.
+    :type definition_id: str
+    :param schema_uri:
+        An URI of the JSON Schema meta-schema.
+    :type schema_uri: str
     """
     def __init__(self, additional_properties=False, pattern_properties=None,
                  min_properties=None, max_properties=None,
                  title=None, description=None,
-                 default=None, enum=None, schema_uri='http://json-schema.org/draft-04/schema#'):
+                 default=None, enum=None,
+                 definition_id=None, schema_uri='http://json-schema.org/draft-04/schema#'):
         self.pattern_properties = pattern_properties
         self.additional_properties = additional_properties
         self.min_properties = min_properties
@@ -31,6 +43,7 @@ class Options(object):
         self.description = description
         self.enum = enum
         self.default = default
+        self.definition_id = definition_id
         self.schema_uri = schema_uri
 
 
@@ -134,7 +147,7 @@ class Document(object):
         """Returns a unique string to be used as a key for this document
         in the "definitions" schema section.
         """
-        return '{0}.{1}'.format(cls.__module__, cls.__name__)
+        return cls._options.definition_id or '{0}.{1}'.format(cls.__module__, cls.__name__)
 
     @classmethod
     def get_schema(cls):

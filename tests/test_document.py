@@ -27,12 +27,16 @@ def test_to_schema():
         class Options(object):
             title = 'Task'
             description = 'A task.'
+            definition_id = 'task'
 
         name = StringField(required=True, min_length=5)
         type = StringField(required=True, enum=['TYPE_1', 'TYPE_2'])
         resources = ArrayField(DocumentField(Resource))
         created_at = DateTimeField(required=True)
         author = DocumentField(User)
+
+    assert Resource._get_definition_id() == 'test_document.Resource'
+    assert Task._get_definition_id() == 'task'
 
     task_schema = Task.get_schema()
     expected_task_schema = {
