@@ -1,2 +1,3 @@
-.coverage
+/.coverage
 /docs/build
+/dist
