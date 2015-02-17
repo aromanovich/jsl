@@ -13,17 +13,18 @@ JSL is a Python library that provides a DSL for describing JSON schemas.
 Why? Well, JSON schemas, especially large ones, can be tiresome to write. The standard is not always
 intuitive and leaves some places to make a mistake --  for instance, it is easy to mix
 ``maxItems`` keyword with ``maxLength``, or to forget to set ``additionalProperties`` to false, and so on.
-The syntax is not very concise and large or recursive schema definitions are not easy to comprehend.
+The syntax is not very concise and sometimes schema definitions get clumsy and hard to comprehend.
 
 The DSL allows you to define a JSON schema in the way similar to how you define a model using an ORM --
 using classes and fields and relying on some metaclass magic under the hood.
 
 It:
-    * makes reading and writing schemas easier
-    * makes easier to decompose large schema definitions into smaller readable pieces
-    * makes schemas extendable using the class inheritance
-    * enables the autocomplete feature of your IDE
-    * prevents you from making a mistypes in JSON schema keywords (by throwing a RuntimeError)
+    * makes reading and writing schemas easier;
+    * makes easier to decompose large schema definitions into smaller readable pieces;
+    * makes schemas extendable using the class inheritance;
+    * enables the autocomplete feature of your IDE;
+    * prevents you from making mistypes in JSON schema keywords (by throwing a RuntimeError);
+    * ...
 
 Let's take a look at examples.
 
@@ -150,9 +151,48 @@ Installation
 API
 ---
 
-.. toctree::
+Document
+~~~~~~~~
 
-    api
+.. autoclass:: jsl.document.Options
+    :members:
+
+.. autoclass:: jsl.document.Document
+    :members: get_schema
+
+Fields
+~~~~~~
+
+Base Fields
++++++++++++
+
+.. autoclass:: jsl.fields.BaseField
+   :members: get_schema
+
+.. autoclass:: jsl.fields.BaseSchemaField
+    :members:
+
+Schema Fields
++++++++++++++
+
+.. autoclass:: jsl.fields.DocumentField
+.. autoclass:: jsl.fields.ArrayField
+.. autoclass:: jsl.fields.DictField
+
+.. autoclass:: jsl.fields.NotField
+.. autoclass:: jsl.fields.OneOfField
+.. autoclass:: jsl.fields.AnyOfField
+.. autoclass:: jsl.fields.AllOfField
+
+.. autoclass:: jsl.fields.BooleanField
+.. autoclass:: jsl.fields.StringField
+.. autoclass:: jsl.fields.EmailField
+.. autoclass:: jsl.fields.IPv4Type
+.. autoclass:: jsl.fields.DateTimeField
+.. autoclass:: jsl.fields.UriField
+.. autoclass:: jsl.fields.UriField
+.. autoclass:: jsl.fields.NumberField
+.. autoclass:: jsl.fields.IntField
 
 Contributing
 ------------

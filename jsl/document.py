@@ -90,7 +90,19 @@ class DocumentMeta(type):
 
 
 class Document(object):
-    """A document"""
+    """A document. Can be thought as a kind of :class:`.fields.DictField`, which
+    properties are defined by the fields added to the document class.
+
+    It can be tuned using special ``Options`` attribute (see :class:`.Options` for available settings).
+
+    Example::
+
+        class User(Document):
+            class Options(object):
+                title = 'User'
+                description = 'A person who uses a computer or network service.'
+            login = StringField(required=True)
+    """
     __metaclass__ = DocumentMeta
 
     @classmethod
