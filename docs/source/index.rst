@@ -6,28 +6,139 @@ Release v\ |version|.
 Introduction
 ------------
 
-JSON Schema (and its Python implementation) is a wonderful tool for data validation.
+`JSON Schema`_ and its `Python implementation`_ are wonderful tools for data validation.
 
-But schemas can be tiresome to write, especially large ones. The standard is not always
-intuitive and leaves some places to make a mistake. It is easy to mix ``maxItems`` keyword with ``maxLength``,
-or to forget to set ``additionalProperties`` to false, and so on.
+JSL is a Python library that provides a DSL for describing JSON schemas.
 
+Why? Well, JSON schemas, especially large ones, can be tiresome to write. The standard is not always
+intuitive and leaves some places to make a mistake --  for instance, it is easy to mix
+``maxItems`` keyword with ``maxLength``, or to forget to set ``additionalProperties`` to false, and so on.
 The syntax is not very concise and large or recursive schema definitions are not easy to comprehend.
 
-JSL is a Python library that adresses this issues by providing a DSL for describing JSON schemas.
 The DSL allows you to define a JSON schema in the way similar to how you define a model using an ORM --
-using classes and fields and relying on some metaclass-magic under the hood.
+using classes and fields and relying on some metaclass magic under the hood.
 
-Examples
---------
+It:
+    * makes reading and writing schemas easier
+    * makes easier to decompose large schema definitions into smaller readable pieces
+    * makes schemas extendable using the class inheritance
+    * enables the autocomplete feature of your IDE
+    * prevents you from making a mistypes in JSON schema keywords (by throwing a RuntimeError)
 
-    # TODO
-
+Let's take a look at examples.
 
 .. links
 
 .. _Python implementation: https://python-jsonschema.readthedocs.org/en/latest/
 .. _JSON Schema: http://json-schema.org/
+
+Examples
+--------
+
+::
+
+    from jsl import Document, StringField, ArrayField, DocumentField, OneOfField
+
+    class Entry(Document):
+        name = StringField(required=True)
+
+    class File(Entry):
+        content = StringField(required=True)
+
+    class Directory(Entry):
+        content = ArrayField(OneOfField([
+            DocumentField(File, as_ref=True),
+            DocumentField('self')
+        ]), required=True)
+
+
+``Directory.to_schema()`` will return the following schema:
+
+::
+
+    {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {
+            "module.File": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "content",
+                    "name"
+                ],
+                "properties": {
+                    "content": {"type": "string"},
+                    "name": {"type": "string"}
+                }
+            },
+            "module.Directory": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "content",
+                    "name"
+                ],
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"$ref": "#/definitions/module.File"},
+                                {"$ref": "#/definitions/module.Directory"}
+                            ]
+                        }
+                    },
+                    "name": {"type": "string"}
+                }
+            }
+        },
+        "$ref": "#/definitions/module.Directory"
+    }
+
+A `JSON schema from the official documentation`_, defined using JSL:
+
+::
+
+    from jsl import Document, BooleanField, StringField, ArrayField, DocumentField, OneOfField, IntField
+
+    class DiskDevice(Document):
+        type = StringField(enum=['disk'], required=True)
+        device = StringField(pattern='^/dev/[^/]+(/[^/]+)*$', required=True)
+
+    class DiskUUID(Document):
+        type = StringField(enum=['disk'], required=True)
+        label = StringField(pattern='^[a-fA-F0-9]{8}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{4}-[a-fA-F0-9]{12}$',
+                            required=True)
+
+    class NFS(Document):
+        type = StringField(enum=['nfs'], required=True)
+        remotePath = StringField(pattern='^(/[^/]+)+$', required=True)
+        server = OneOfField([
+            StringField(format='ipv4'),
+            StringField(format='ipv6'),
+            StringField(format='host-name'),
+        ], required=True)
+
+    class TmpFS(Document):
+        type = StringField(enum=['tmpfs'], required=True)
+        sizeInMb = IntField(minimum=16, maximum=512, required=True)
+
+    class Schema(Document):
+        class Options(object):
+            schema_uri = 'http://json-schema.org/draft-04/schema#'
+            description = 'schema for an fstab entry'
+
+        storage = OneOfField([
+            DocumentField(DiskDevice, as_ref=True),
+            DocumentField(DiskUUID, as_ref=True),
+            DocumentField(NFS, as_ref=True),
+            DocumentField(TmpFS, as_ref=True),
+        ], required=True)
+        fstype = StringField(enum=['ext3', 'ext4', 'btrfs'])
+        options = ArrayField(StringField(), min_items=1, unique_items=True)
+        readonly = BooleanField()
+
+.. _JSON schema from the official documentation: http://json-schema.org/example2.html
 
 Installation
 ------------
