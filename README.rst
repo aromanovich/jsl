@@ -13,6 +13,69 @@ Documentation_ | GitHub_ |  PyPI_
 
 JSL is a Python DSL for defining JSON Schemas.
 
+Example
+-------
+
+.. code-block:: python
+
+    from jsl import Document, StringField, ArrayField, DocumentField, OneOfField
+
+    class Entry(Document):
+        name = StringField(required=True)
+
+    class File(Entry):
+        content = StringField(required=True)
+
+    class Directory(Entry):
+        content = ArrayField(OneOfField([
+            DocumentField(File, as_ref=True),
+            DocumentField('self')  # recursion
+        ]), required=True)
+
+
+``Directory.to_schema()`` will return the following schema:
+
+.. code-block:: json
+
+    {
+        "$schema": "http://json-schema.org/draft-04/schema#",
+        "definitions": {
+            "module.File": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "content",
+                    "name"
+                ],
+                "properties": {
+                    "content": {"type": "string"},
+                    "name": {"type": "string"}
+                }
+            },
+            "module.Directory": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                    "content",
+                    "name"
+                ],
+                "properties": {
+                    "content": {
+                        "type": "array",
+                        "items": {
+                            "oneOf": [
+                                {"$ref": "#/definitions/module.File"},
+                                {"$ref": "#/definitions/module.Directory"}
+                            ]
+                        }
+                    },
+                    "name": {"type": "string"}
+                }
+            }
+        },
+        "$ref": "#/definitions/module.Directory"
+    }
+
 Installing
 ----------
 
