@@ -29,7 +29,7 @@ if sys.argv[-1] in ('submit', 'publish'):
 setup(
     name='jsl',
     version=__version__,
-    description='TODO',
+    description='A Python DSL for defining JSON schemas',
     long_description=open('README.rst').read(),
     license=open('LICENSE').read(),
     author='Anton Romanovich',
