@@ -4,11 +4,12 @@ from __future__ import unicode_literals
 import inspect
 
 from . import registry
+from .compat import iteritems, itervalues, with_metaclass
 from .fields import BaseField, DocumentField, DictField
 
 
 def set_owner_to_document_fields(cls):
-    for field in cls._fields.itervalues():
+    for field in itervalues(cls._fields):
         for field_ in field.walk(through_document_fields=False, visited_documents=set([cls])):
             if isinstance(field_, DocumentField):
                 field_.set_owner(cls)
@@ -56,7 +57,7 @@ class DocumentMeta(type):
             if hasattr(base, '_fields'):
                 fields.update(base._fields)
 
-        for key, value in attrs.iteritems():
+        for key, value in iteritems(attrs):
             if isinstance(value, BaseField):
                 fields[key] = value
 
@@ -102,7 +103,7 @@ class DocumentMeta(type):
         return Options(**options_members)
 
 
-class Document(object):
+class Document(with_metaclass(DocumentMeta)):
     """A document. Can be thought as a kind of :class:`.fields.DictField`, which
     properties are defined by the fields added to the document class.
 
@@ -116,8 +117,6 @@ class Document(object):
                 description = 'A person who uses a computer or network service.'
             login = StringField(required=True)
     """
-    __metaclass__ = DocumentMeta
-
     @classmethod
     def walk(cls, through_document_fields=False, visited_documents=frozenset()):
         """Yields nested fields in DFS order.

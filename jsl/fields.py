@@ -6,6 +6,7 @@ import sre_constants
 import itertools
 
 from . import registry
+from .compat import iteritems, iterkeys, itervalues, string_types
 
 
 RECURSIVE_REFERENCE_CONSTANT = 'self'
@@ -341,7 +342,7 @@ class DictField(BaseSchemaField):
         nested_definitions = {}
         schema = {}
         required = []
-        for prop, field in properties.iteritems():
+        for prop, field in iteritems(properties):
             field_definitions, field_schema = field.get_definitions_and_schema(ref_documents=ref_documents)
             if field.required:
                 required.append(prop)
@@ -363,7 +364,7 @@ class DictField(BaseSchemaField):
             nested_definitions.update(properties_definitions)
 
         if self.pattern_properties is not None:
-            for key in self.pattern_properties.iterkeys():
+            for key in iterkeys(self.pattern_properties):
                 _validate_regex(key)
             properties_definitions, _, properties_schema = self._process_properties(
                 self.pattern_properties, ref_documents=ref_documents)
@@ -389,9 +390,9 @@ class DictField(BaseSchemaField):
     def walk(self, through_document_fields=False, visited_documents=frozenset()):
         fields_to_visit = []
         if self.properties is not None:
-            fields_to_visit.append(self.properties.itervalues())
+            fields_to_visit.append(itervalues(self.properties))
         if self.pattern_properties is not None:
-            fields_to_visit.append(self.pattern_properties.itervalues())
+            fields_to_visit.append(itervalues(pattern_properties))
         if self.additional_properties is not None and not isinstance(self.additional_properties, bool):
             fields_to_visit.append([self.additional_properties])
 
@@ -511,7 +512,7 @@ class DocumentField(BaseField):
 
     @property
     def document_cls(self):
-        if isinstance(self._document_cls, basestring):
+        if isinstance(self._document_cls, string_types):
             if self._document_cls == RECURSIVE_REFERENCE_CONSTANT:
                 if self.owner_cls is None:
                     raise ValueError('owner_cls is not set')

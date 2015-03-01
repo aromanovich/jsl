@@ -39,13 +39,14 @@ def test_to_schema():
     assert Task._get_definition_id() == 'task'
 
     task_schema = Task.get_schema()
+    task_schema['required'].sort()
     expected_task_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'type': 'object',
         'title': 'Task',
         'description': 'A task.',
         'additionalProperties': False,
-        'required': ['created_at', 'type', 'name'],
+        'required': ['created_at', 'name', 'type'],
         'properties': {
             'created_at': Task.created_at.get_schema(),
             'type': Task.type.get_schema(),
