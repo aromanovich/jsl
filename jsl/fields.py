@@ -6,7 +6,7 @@ import sre_constants
 import itertools
 
 from . import registry
-from .compat import iteritems, iterkeys, itervalues, string_types
+from ._compat import iteritems, iterkeys, itervalues, string_types
 
 
 RECURSIVE_REFERENCE_CONSTANT = 'self'

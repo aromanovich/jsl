@@ -16,11 +16,11 @@ def test_registry():
     registry.put_document('B', b)
     assert registry.get_document('B') is b
 
-    assert set(registry.iter_documents()) == {a, b}
+    assert set(registry.iter_documents()) == set([a, b])
 
     registry.remove_document('B')
 
-    assert set(registry.iter_documents()) == {a,}
+    assert set(registry.iter_documents()) == set([a])
 
     with pytest.raises(KeyError):
         registry.remove_document('A')

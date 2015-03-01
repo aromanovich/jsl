@@ -4,7 +4,7 @@ from __future__ import unicode_literals
 import inspect
 
 from . import registry
-from .compat import iteritems, itervalues, with_metaclass
+from ._compat import iteritems, itervalues, with_metaclass
 from .fields import BaseField, DocumentField, DictField
 
 
