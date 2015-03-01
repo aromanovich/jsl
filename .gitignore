@@ -1,3 +1,9 @@
+*.egg*
+*.py[co]
+__pycache__/
+
 /.coverage
 /docs/build
 /dist
+/env
+/.python-version
