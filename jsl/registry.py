@@ -1,8 +1,8 @@
 # coding: utf-8
 from __future__ import unicode_literals
-"""
-A registry of all documents.
-"""
+
+from .compat import itervalues
+
 
 _documents_registry = {}
 
@@ -23,3 +23,11 @@ def remove_document(name, module=None):
     if module:
         name = '{0}.{1}'.format(module, name)
     del _documents_registry[name]
+
+
+def iter_documents():
+    return itervalues(_documents_registry)
+
+
+def clear():
+    _documents_registry.clear()

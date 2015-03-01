@@ -1,7 +1,7 @@
+# coding: utf-8
 """
 Compatibility utils for Python 2 & 3.
 """
-
 import sys
 
 
