@@ -186,3 +186,7 @@ class Document(with_metaclass(DocumentMeta)):
             return definitions, {'$ref': '#/definitions/{0}'.format(definition_id)}
         else:
             return definitions, schema
+
+
+# Remove Document itself from registry
+registry.remove_document(Document.__name__, module=Document.__module__)

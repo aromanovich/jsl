@@ -17,3 +17,9 @@ def put_document(name, document_cls, module=None):
     if module:
         name = '{0}.{1}'.format(module, name)
     _documents_registry[name] = document_cls
+
+
+def remove_document(name, module=None):
+    if module:
+        name = '{0}.{1}'.format(module, name)
+    del _documents_registry[name]
