@@ -98,10 +98,11 @@ def test_number_and_int_fields():
     })
     check_field_schema(f)
 
-    f = fields.NumberField(minimum=0, maximum=10, exclusive_minimum=True)
+    f = fields.NumberField(minimum=0, maximum=10, exclusive_minimum=True, exclusive_maximum=True)
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'number',
         'exclusiveMinumum': True,
+        'exclusiveMaximum': True,
         'minimum': 0,
         'maximum': 10,
     })
@@ -121,7 +122,7 @@ def test_number_and_int_fields():
     check_field_schema(f)
 
 
-def test_array_field():
+def test_array_field_to_schema():
     items_mock = fields.StringField()
 
     f = fields.ArrayField(items_mock)
@@ -161,6 +162,23 @@ def test_array_field():
         'type': 'array',
         'items': [item_1_mock.get_schema(), item_2_mock.get_schema()],
     })
+
+
+def test_array_field_walk():
+    aa = fields.StringField()
+    a = fields.DictField(properties={'aa': aa})
+    b = fields.StringField()
+    c = fields.StringField()
+
+    array_field = fields.ArrayField((a, b), additional_items=c)
+    path = list(array_field.walk())
+    expected_path = [array_field, a, aa, b, c]
+    assert path == expected_path
+
+    array_field = fields.ArrayField(a, additional_items=False)
+    path = list(array_field.walk())
+    expected_path = [array_field, a, aa]
+    assert path == expected_path
 
 
 def test_dict_field_to_schema():
@@ -229,7 +247,30 @@ def test_dict_field_to_schema():
     })
     check_field_schema(f)
 
-    # TODO test DictField.walk
+
+def test_dict_field_walk():
+    aa = fields.StringField()
+    a = fields.DictField(properties={'aa': aa})
+    bb = fields.StringField()
+    b = fields.DictField(properties={'bb': bb})
+    cc = fields.StringField()
+    c = fields.DictField(properties={'cc': cc})
+    dd = fields.StringField()
+    d = fields.DictField(properties={'dd': dd})
+    dict_field = fields.DictField(
+        properties={
+            'a': a,
+            'b': b,
+        },
+        pattern_properties={
+            'c': c,
+        },
+        additional_properties=d
+    )
+    path = list(dict_field.walk())
+    expected_path_1 = [dict_field, a, aa, b, bb, c, cc, d, dd]
+    expected_path_2 = [dict_field, b, bb, a, aa, c, cc, d, dd]
+    assert path == expected_path_1 or path == expected_path_2
 
 
 def test_document_field():

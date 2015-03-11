@@ -249,7 +249,7 @@ class ArrayField(BaseSchemaField):
     :param additional_items:
         If the value of ``items`` is a list or a tuple, and the array length is larger than
         the number of fields in ``items``, then the additional items are described
-        by the schema in this property.
+        by the :class:`BaseField` passed using this argument.
     :type unique_items: bool or :class:`BaseField`
     """
     def __init__(self, items, min_items=None, max_items=None, unique_items=False,
@@ -306,6 +306,10 @@ class ArrayField(BaseSchemaField):
         else:
             for field in self.items.walk(through_document_fields=through_document_fields,
                                          visited_documents=visited_documents):
+                yield field
+        if isinstance(self.additional_items, BaseField):
+            for field in self.additional_items.walk(through_document_fields=through_document_fields,
+                                                    visited_documents=visited_documents):
                 yield field
 
 
@@ -392,7 +396,7 @@ class DictField(BaseSchemaField):
         if self.properties is not None:
             fields_to_visit.append(itervalues(self.properties))
         if self.pattern_properties is not None:
-            fields_to_visit.append(itervalues(pattern_properties))
+            fields_to_visit.append(itervalues(self.pattern_properties))
         if self.additional_properties is not None and not isinstance(self.additional_properties, bool):
             fields_to_visit.append([self.additional_properties])
 
