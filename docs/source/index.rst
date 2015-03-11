@@ -160,6 +160,9 @@ Document
 .. autoclass:: jsl.document.Document
     :members: get_schema
 
+.. autoclass:: jsl.document.DocumentMeta
+    :members: options_container, collect_fields, collect_options, create_options
+
 Fields
 ~~~~~~
 
@@ -193,6 +196,23 @@ Schema Fields
 .. autoclass:: jsl.fields.UriField
 .. autoclass:: jsl.fields.NumberField
 .. autoclass:: jsl.fields.IntField
+
+
+Changelog
+---------
+
+0.0.7: 2014-03-11
+~~~~~~~~~~~~~~~~~
+
+- More subclassing-friendly :class:`~jsl.document.DocumentMeta` which allows to
+  override methods for collecting document fields and options and
+  choose a container class for storing options;
+- Various minor bugfixes.
+
+0.0.5: 2014-03-01
+~~~~~~~~~~~~~~~~~
+
+- Python 3 support by Igor Davydenko.
 
 Contributing
 ------------

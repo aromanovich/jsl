@@ -49,7 +49,16 @@ class Options(object):
 
 
 class DocumentMeta(type):
+    """
+    A metaclass for :class:`~.Document`. It's responsible for collecting fields and options,
+    registering the document in the registry, making it the owner of nested
+    :class:`~.DocumentField` s and so on.
+    """
     options_container = Options
+    """
+    A class to be used by :meth:`~.DocumentMeta.create_options`.
+    Must be a subclass of :class:`~.Options`.
+    """
 
     def __new__(mcs, name, bases, attrs):
         fields = mcs.collect_fields(bases, attrs)
@@ -80,7 +89,7 @@ class DocumentMeta(type):
         """
         Collects fields from the current class and its parent classes.
 
-        :rtype: a dictionary mapping field names to :class:`BaseField` s
+        :rtype: a dictionary mapping field names to :class:`~jsl.document.BaseField` s
         """
         fields = {}
         # fields from parent classes:
@@ -117,8 +126,10 @@ class DocumentMeta(type):
     @classmethod
     def create_options(cls, options):
         """
+        Wraps ``options`` into a container class (see :attr:`~.DocumentMeta.options_container`).
+
         :param options: a dictionary of options
-        :return: an instance of ``cls.options_container``
+        :return: an instance of :attr:`~.DocumentMeta.options_container`
         """
         return cls.options_container(**options)
 
