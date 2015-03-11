@@ -49,19 +49,13 @@ class Options(object):
 
 
 class DocumentMeta(type):
+    options_container = Options
+
     def __new__(mcs, name, bases, attrs):
-        fields = {}
+        fields = mcs.collect_fields(bases, attrs)
+        options_data = mcs.collect_options(bases, attrs)
+        options = mcs.create_options(options_data)
 
-        # accumulate fields from parent classes
-        for base in reversed(bases):
-            if hasattr(base, '_fields'):
-                fields.update(base._fields)
-
-        for key, value in iteritems(attrs):
-            if isinstance(value, BaseField):
-                fields[key] = value
-
-        options = mcs._read_options(name, bases, attrs)
         attrs['_fields'] = fields
         attrs['_options'] = options
         attrs['_field'] = DictField(
@@ -82,25 +76,51 @@ class DocumentMeta(type):
         return klass
 
     @classmethod
-    def _read_options(mcs, name, bases, attrs):
+    def collect_fields(mcs, bases, attrs):
         """
-        Parses `DocumentOptions` instance into the options value attached to
-        `Document` instances.
-        """
-        options_members = {}
+        Collects fields from the current class and its parent classes.
 
+        :rtype: a dictionary mapping field names to :class:`BaseField` s
+        """
+        fields = {}
+        # fields from parent classes:
+        for base in reversed(bases):
+            if hasattr(base, '_fields'):
+                fields.update(base._fields)
+        # and from the current class:
+        for key, value in iteritems(attrs):
+            if isinstance(value, BaseField):
+                fields[key] = value
+        return fields
+
+    @classmethod
+    def collect_options(mcs, bases, attrs):
+        """
+        Collects options from the current class and its parent classes.
+
+        :rtype: a dictionary of options
+        """
+        options = {}
+        # options from parent classes:
         for base in reversed(bases):
             if hasattr(base, '_options'):
                 for key, value in inspect.getmembers(base._options):
-                    if not key.startswith('_') and key != 'get_schema':
-                        options_members[key] = value
-
+                    if not key.startswith('_') and value is not None:
+                        options[key] = value
+        # options from the current class:
         if 'Options' in attrs:
             for key, value in inspect.getmembers(attrs['Options']):
-                if not key.startswith('_') and key != 'get_schema':
-                    options_members[key] = value
+                if not key.startswith('_') and value is not None:
+                    options[key] = value
+        return options
 
-        return Options(**options_members)
+    @classmethod
+    def create_options(cls, options):
+        """
+        :param options: a dictionary of options
+        :return: an instance of ``cls.options_container``
+        """
+        return cls.options_container(**options)
 
 
 class Document(with_metaclass(DocumentMeta)):
