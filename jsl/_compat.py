@@ -8,6 +8,11 @@ import sys
 IS_PY3 = sys.version_info[0] == 3
 string_types = (str, ) if IS_PY3 else (basestring, )
 
+if IS_PY3:
+    from urllib.parse import urljoin, urlunsplit, urlsplit
+else:
+    from urlparse import urljoin, urlunsplit, urlsplit
+
 
 def iterkeys(obj, **kwargs):
     """Iterate over dict keys in Python 2 & 3."""
@@ -42,3 +47,15 @@ def with_metaclass(meta, *bases):
         def __new__(cls, name, this_bases, d):
             return meta(name, bases, d)
     return type.__new__(metaclass, 'temporary_class', (), {})
+
+
+# On python < 3.3 fragments are not handled properly with unknown schemes
+
+def urldefrag(url):
+    if "#" in url:
+        s, n, p, q, frag = urlsplit(url)
+        defrag = urlunsplit((s, n, p, q, ''))
+    else:
+        defrag = url
+        frag = ''
+    return defrag, frag

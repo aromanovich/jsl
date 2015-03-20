@@ -1,6 +1,4 @@
 # coding: utf-8
-from __future__ import unicode_literals
-
 import jsonschema
 
 from jsl.document import Document
@@ -77,22 +75,31 @@ def test_document_options():
 
 def test_recursive_definitions_1():
     class A(Document):
+        class Options(object):
+            id = 'http://example.com/schema/'
         id = StringField()
         b = DocumentField('B')
 
     class B(Document):
+        class Options(object):
+            id = 'segment/'
         a = DocumentField(A)
         b = DocumentField('B')
         c = DocumentField('C')
 
     class C(Document):
+        class Options(object):
+            id = 'segment2/'
         a = DocumentField(A)
         d = DocumentField('D')
 
     class D(Document):
+        class Options(object):
+            id = '#hash'
         id = StringField()
 
     expected_schema = {
+        'id': 'http://example.com/schema/',
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': {
             'test_document.A': {
@@ -104,24 +111,27 @@ def test_recursive_definitions_1():
                 },
             },
             'test_document.B': {
+                'id': 'segment/',
                 'type': 'object',
                 'additionalProperties': False,
                 'properties': {
-                    'a': {'$ref': '#/definitions/test_document.A'},
-                    'b': {'$ref': '#/definitions/test_document.B'},
-                    'c': {'$ref': '#/definitions/test_document.C'},
+                    'a': {'$ref': 'http://example.com/schema/#/definitions/test_document.A'},
+                    'b': {'$ref': 'http://example.com/schema/#/definitions/test_document.B'},
+                    'c': {'$ref': 'http://example.com/schema/#/definitions/test_document.C'},
                 },
             },
             'test_document.C': {
+                'id': 'segment/segment2/',
                 'type': 'object',
                 'additionalProperties': False,
                 'properties': {
-                    'a': {'$ref': '#/definitions/test_document.A'},
+                    'a': {'$ref': 'http://example.com/schema/#/definitions/test_document.A'},
                     'd': {
+                        'id': '#hash',
                         'type': 'object',
                         'additionalProperties': False,
                         'properties': {
-                            'id': {'type': 'string'}
+                            'id': {'type': 'string'},
                         },
                     },
                 },
@@ -129,11 +139,98 @@ def test_recursive_definitions_1():
         },
         '$ref': '#/definitions/test_document.A',
     }
-    assert A.get_schema() == expected_schema
+    schema = A.get_schema()
+    assert schema == expected_schema
     check_field_schema(A)
+
+    # let's make sure that all the references in resulting schema
+    # can be resolved
+    jsonschema.validate({
+        'id': 'test',
+        'b': {
+            'a': {'id': 'qqq'},
+            'b': {},
+            'c': {
+                'd': {'id': 'www'}
+            }
+        }
+    }, schema)
 
 
 def test_recursive_definitions_2():
+    class A(Document):
+        class Options(object):
+            id = 'http://example.com/schema'
+        b = DocumentField('B')
+
+    class B(Document):
+        class Options(object):
+            id = 'http://aromanovich.ru/schema_1'
+        c = DocumentField('C')
+
+    class C(Document):
+        class Options(object):
+            id = 'schema_2'
+        d = DocumentField('D')
+        a = DocumentField(A)
+
+    class D(Document):
+        class Options(object):
+            id = '#hash'
+
+    expected_schema = {
+        'id': 'http://example.com/schema',
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'definitions': {
+            'test_document.A': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'b': {'$ref': '#/definitions/test_document.B'},
+                },
+            },
+            'test_document.B': {
+                'id': 'http://aromanovich.ru/schema_1',
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'c': {'$ref': 'http://example.com/schema#/definitions/test_document.C'},
+                },
+            },
+            'test_document.C': {
+                'id': 'http://aromanovich.ru/schema_2',
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'a': {'$ref': 'http://example.com/schema#/definitions/test_document.A'},
+                    'd': {
+                        'id': '#hash',
+                        'type': 'object',
+                        'additionalProperties': False,
+                        'properties': {},
+                    },
+                },
+            },
+        },
+        '$ref': '#/definitions/test_document.A',
+    }
+    schema = A.get_schema()
+    assert schema == expected_schema
+    check_field_schema(A)
+
+    # let's make sure that all the references in resulting schema
+    # can be resolved
+    jsonschema.validate({
+        'b': {
+            'c': {
+                'a': {},
+                'd': {}
+            }
+        }
+    }, schema)
+
+
+def test_recursive_definitions_3():
     class Main(Document):
         a = DocumentField('test_document.A')
         b = DocumentField('B')
@@ -189,7 +286,7 @@ def test_recursive_definitions_2():
     check_field_schema(Main)
 
 
-def test_recursive_definitions_3():
+def test_recursive_definitions_4():
     class Main(Document):
         a = DocumentField('A')
 

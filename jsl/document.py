@@ -1,11 +1,10 @@
 # coding: utf-8
-from __future__ import unicode_literals
-
 import inspect
 
 from . import registry
-from ._compat import iteritems, itervalues, with_metaclass
 from .fields import BaseField, DocumentField, DictField
+from .scope import ResolutionScope
+from ._compat import iteritems, itervalues, with_metaclass
 
 
 def set_owner_to_document_fields(cls):
@@ -35,15 +34,16 @@ class Options(object):
                  min_properties=None, max_properties=None,
                  title=None, description=None,
                  default=None, enum=None,
-                 definition_id=None, schema_uri='http://json-schema.org/draft-04/schema#'):
+                 id='', definition_id=None, schema_uri='http://json-schema.org/draft-04/schema#'):
         self.pattern_properties = pattern_properties
         self.additional_properties = additional_properties
         self.min_properties = min_properties
         self.max_properties = max_properties
         self.title = title
         self.description = description
-        self.enum = enum
         self.default = default
+        self.enum = enum
+        self.id = id
         self.definition_id = definition_id
         self.schema_uri = schema_uri
 
@@ -76,7 +76,8 @@ class DocumentMeta(type):
             title=options.title,
             description=options.description,
             enum=options.enum,
-            default=options.default
+            default=options.default,
+            id=options.id,
         )
 
         klass = type.__new__(mcs, name, bases, attrs)
@@ -182,15 +183,18 @@ class Document(with_metaclass(DocumentMeta)):
     @classmethod
     def get_schema(cls):
         """Returns a JSON schema (draft v4) of the document."""
-        definitions, schema = cls.get_definitions_and_schema()
+        definitions, schema = cls.get_definitions_and_schema(
+            scope=ResolutionScope(base=cls._options.id, current=cls._options.id))
         if definitions:
             schema['definitions'] = definitions
+        if cls._options.id:
+            schema['id'] = cls._options.id
         if cls._options.schema_uri is not None:
             schema['$schema'] = cls._options.schema_uri
         return schema
 
     @classmethod
-    def get_definitions_and_schema(cls, ref_documents=None):
+    def get_definitions_and_schema(cls, scope=ResolutionScope(), ref_documents=None):
         """Returns a tuple of two elements.
 
         The second element is a JSON schema of the document, and the first is a dictionary
@@ -209,14 +213,18 @@ class Document(with_metaclass(DocumentMeta)):
             ref_documents = set(ref_documents) if ref_documents else set()
             ref_documents.add(cls)
 
-        definitions, schema = cls._field.get_definitions_and_schema(ref_documents=ref_documents)
+        if is_recursive:
+            scope = scope.replace(output=scope._base)
+
+        definitions, schema = cls._field.get_definitions_and_schema(
+            scope=scope, ref_documents=ref_documents)
 
         if is_recursive:
             definition_id = cls._get_definition_id()
             definitions[definition_id] = schema
-            return definitions, {'$ref': '#/definitions/{0}'.format(definition_id)}
-        else:
-            return definitions, schema
+            schema = scope.create_ref(definition_id)
+
+        return definitions, schema
 
 
 # Remove Document itself from registry

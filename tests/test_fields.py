@@ -1,6 +1,4 @@
 # coding: utf-8
-from __future__ import unicode_literals
-
 import mock
 import pytest
 import jsonschema
@@ -32,7 +30,8 @@ def test_base_schema_field():
                                enum=lambda: [1, 2, 3], default=lambda: 123)
     assert f.title == 'Title'
 
-    assert f._get_common_schema_fields() == {
+    assert f._get_common_schema_fields(id='qwerty') == {
+        'id': 'qwerty',
         'title': 'Title',
         'description': 'Description',
         'enum': [1, 2, 3],
