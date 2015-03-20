@@ -201,6 +201,11 @@ Schema Fields
 Changelog
 ---------
 
+0.0.8: 2014-03-21
+~~~~~~~~~~~~~~~~~
+
+- Add the ability to specify an `id`_ for documents and fields.
+
 0.0.7: 2014-03-11
 ~~~~~~~~~~~~~~~~~
 
@@ -213,6 +218,8 @@ Changelog
 ~~~~~~~~~~~~~~~~~
 
 - Python 3 support by Igor Davydenko.
+
+.. _id: http://tools.ietf.org/html/draft-zyp-json-schema-04#section-7.2
 
 Contributing
 ------------
