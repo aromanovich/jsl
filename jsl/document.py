@@ -67,7 +67,7 @@ class DocumentMeta(type):
 
         attrs['_fields'] = fields
         attrs['_options'] = options
-        attrs['_field'] = DictField(
+        dictfield = DictField(
             properties=fields,
             pattern_properties=options.pattern_properties,
             additional_properties=options.additional_properties,
@@ -79,6 +79,9 @@ class DocumentMeta(type):
             default=options.default,
             id=options.id,
         )
+        attrs['_field'] = dictfield
+        attrs['walk'] = dictfield.walk
+        attrs['iter_fields'] = dictfield.iter_fields
 
         klass = type.__new__(mcs, name, bases, attrs)
         registry.put_document(klass.__name__, klass, module=klass.__module__)
@@ -149,21 +152,6 @@ class Document(with_metaclass(DocumentMeta)):
                 description = 'A person who uses a computer or network service.'
             login = StringField(required=True)
     """
-    @classmethod
-    def walk(cls, through_document_fields=False, visited_documents=frozenset()):
-        """Yields nested fields in DFS order.
-
-        :param through_document_fields:
-            If true, visits fields of the nested documents.
-        :type through_document_fields: bool
-        :param visited_documents:
-            Keeps track of already visited document classes.
-        :type visited_documents: set
-        """
-        for field_ in cls._field.walk(through_document_fields=through_document_fields,
-                                      visited_documents=visited_documents | set([cls])):
-            yield field_
-
     @classmethod
     def _is_recursive(cls):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""

@@ -57,9 +57,16 @@ class BaseField(object):
             schema['definitions'] = definitions
         return schema
 
+    def iter_fields(self):
+        return iter([])
+
     def walk(self, through_document_fields=False, visited_documents=frozenset()):
         """Yields nested fields in a DFS order."""
         yield self
+        for field in self.iter_fields():
+            for field_ in field.walk(through_document_fields=through_document_fields,
+                                     visited_documents=visited_documents):
+                yield field_
 
 
 class BaseSchemaField(BaseField):
@@ -304,21 +311,14 @@ class ArrayField(BaseSchemaField):
 
         return nested_definitions, schema
 
-    def walk(self, through_document_fields=False, visited_documents=frozenset()):
-        yield self
+    def iter_fields(self):
         if isinstance(self.items, (list, tuple)):
             for field in self.items:
-                for field_ in field.walk(through_document_fields=through_document_fields,
-                                         visited_documents=visited_documents):
-                    yield field_
+                yield field
         else:
-            for field in self.items.walk(through_document_fields=through_document_fields,
-                                         visited_documents=visited_documents):
-                yield field
+            yield self.items
         if isinstance(self.additional_items, BaseField):
-            for field in self.additional_items.walk(through_document_fields=through_document_fields,
-                                                    visited_documents=visited_documents):
-                yield field
+            yield self.additional_items
 
 
 class DictField(BaseSchemaField):
@@ -398,22 +398,18 @@ class DictField(BaseSchemaField):
             schema['minProperties'] = self.min_properties
         if self.max_properties is not None:
             schema['maxProperties'] = self.max_properties
+
         return nested_definitions, schema
 
-    def walk(self, through_document_fields=False, visited_documents=frozenset()):
+    def iter_fields(self):
         fields_to_visit = []
         if self.properties is not None:
             fields_to_visit.append(itervalues(self.properties))
         if self.pattern_properties is not None:
             fields_to_visit.append(itervalues(self.pattern_properties))
-        if self.additional_properties is not None and not isinstance(self.additional_properties, bool):
+        if self.additional_properties is not None and isinstance(self.additional_properties, BaseField):
             fields_to_visit.append([self.additional_properties])
-
-        yield self
-        for field in itertools.chain(*fields_to_visit):
-            for field_ in field.walk(through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
-                yield field_
+        return itertools.chain(*fields_to_visit)
 
 
 class BaseOfField(BaseSchemaField):
@@ -436,12 +432,8 @@ class BaseOfField(BaseSchemaField):
         schema.update(self._get_common_schema_fields(id=id))
         return nested_definitions, schema
 
-    def walk(self, through_document_fields=False, visited_documents=frozenset()):
-        yield self
-        for field in self.fields:
-            for field_ in field.walk(through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
-                yield field_
+    def iter_fields(self):
+        return iter(self.fields)
 
 
 class OneOfField(BaseOfField):
@@ -505,12 +497,15 @@ class DocumentField(BaseField):
         self.as_ref = as_ref
         super(DocumentField, self).__init__(**kwargs)
 
+    def iter_fields(self):
+        return self.document_cls.iter_fields()
+
     def walk(self, through_document_fields=False, visited_documents=frozenset()):
         yield self
         if through_document_fields and self.document_cls not in visited_documents:
-            for field in self.document_cls.walk(
-                    through_document_fields=through_document_fields,
-                    visited_documents=visited_documents | set([self.document_cls])):
+            visited_documents = visited_documents | set([self.document_cls])
+            for field in super(DocumentField, self).walk(through_document_fields=through_document_fields,
+                                                         visited_documents=visited_documents):
                 yield field
 
     def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
