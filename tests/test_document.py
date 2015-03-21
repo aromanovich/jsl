@@ -1,4 +1,5 @@
 # coding: utf-8
+from collections import OrderedDict
 import jsonschema
 
 from jsl.document import Document
@@ -139,8 +140,10 @@ def test_recursive_definitions_1():
         },
         '$ref': '#/definitions/test_document.A',
     }
-    schema = A.get_schema()
+    schema = A.get_schema(ordered=True)
+    assert isinstance(schema, OrderedDict)
     assert schema == expected_schema
+    assert schema.keys() == ['id', '$schema', 'definitions', '$ref']
     check_field_schema(A)
 
     # let's make sure that all the references in resulting schema

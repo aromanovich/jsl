@@ -1,4 +1,5 @@
 # coding: utf-8
+from collections import OrderedDict
 import inspect
 
 from . import registry
@@ -169,20 +170,24 @@ class Document(with_metaclass(DocumentMeta)):
         return cls._options.definition_id or '{0}.{1}'.format(cls.__module__, cls.__name__)
 
     @classmethod
-    def get_schema(cls):
+    def get_schema(cls, ordered=False):
         """Returns a JSON schema (draft v4) of the document."""
         definitions, schema = cls.get_definitions_and_schema(
-            scope=ResolutionScope(base=cls._options.id, current=cls._options.id))
-        if definitions:
-            schema['definitions'] = definitions
+            scope=ResolutionScope(base=cls._options.id, current=cls._options.id),
+            ordered=ordered
+        )
+        rv = OrderedDict() if ordered else {}
         if cls._options.id:
-            schema['id'] = cls._options.id
+            rv['id'] = cls._options.id
         if cls._options.schema_uri is not None:
-            schema['$schema'] = cls._options.schema_uri
-        return schema
+            rv['$schema'] = cls._options.schema_uri
+        if definitions:
+            rv['definitions'] = definitions
+        rv.update(schema)
+        return rv
 
     @classmethod
-    def get_definitions_and_schema(cls, scope=ResolutionScope(), ref_documents=None):
+    def get_definitions_and_schema(cls, scope=ResolutionScope(), ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 
         The second element is a JSON schema of the document, and the first is a dictionary
@@ -200,12 +205,10 @@ class Document(with_metaclass(DocumentMeta)):
         if is_recursive:
             ref_documents = set(ref_documents) if ref_documents else set()
             ref_documents.add(cls)
-
-        if is_recursive:
             scope = scope.replace(output=scope._base)
 
         definitions, schema = cls._field.get_definitions_and_schema(
-            scope=scope, ref_documents=ref_documents)
+            scope=scope, ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
             definition_id = cls._get_definition_id()

@@ -1,4 +1,6 @@
 # coding: utf-8
+from collections import OrderedDict
+
 import mock
 import pytest
 import jsonschema
@@ -30,7 +32,7 @@ def test_base_schema_field():
                                enum=lambda: [1, 2, 3], default=lambda: 123)
     assert f.title == 'Title'
 
-    assert f._get_common_schema_fields(id='qwerty') == {
+    assert f._update_schema_with_common_fields({}, id='qwerty') == {
         'id': 'qwerty',
         'title': 'Title',
         'description': 'Description',
@@ -47,14 +49,20 @@ def test_string_field():
 
     f = fields.StringField(min_length=1, max_length=10, pattern='^test$', enum=('a', 'b', 'c'),
                            title='Pururum')
-    assert f.get_definitions_and_schema() == ({}, {
-        'type': 'string',
-        'minLength': 1,
-        'maxLength': 10,
-        'pattern': '^test$',
-        'enum': ['a', 'b', 'c'],
-        'title': 'Pururum',
-    })
+
+    expected_items = [
+        ('type', 'string'),
+        ('title', 'Pururum'),
+        ('enum', ['a', 'b', 'c']),
+        ('pattern', '^test$'),
+        ('minLength', 1),
+        ('maxLength', 10),
+    ]
+    definitions, schema = f.get_definitions_and_schema()
+    assert (definitions, schema) == ({}, dict(expected_items))
+    definitions, ordered_schema = f.get_definitions_and_schema(ordered=True)
+    assert isinstance(ordered_schema, OrderedDict)
+    assert ordered_schema == OrderedDict(expected_items)
     check_field_schema(f)
 
     with pytest.raises(ValueError) as e:
@@ -123,6 +131,7 @@ def test_number_and_int_fields():
 
 def test_array_field_to_schema():
     items_mock = fields.StringField()
+    additional_items_mock = fields.DictField()
 
     f = fields.ArrayField(items_mock)
     assert f.get_definitions_and_schema() == ({}, {
@@ -130,14 +139,23 @@ def test_array_field_to_schema():
         'items': items_mock.get_schema(),
     })
 
-    f = fields.ArrayField(items_mock, min_items=0, max_items=10, unique_items=True)
-    assert f.get_definitions_and_schema() == ({}, {
-        'type': 'array',
-        'items': items_mock.get_schema(),
-        'minItems': 0,
-        'maxItems': 10,
-        'uniqueItems': True,
-    })
+    expected_items = [
+        ('type', 'array'),
+        ('id', 'test'),
+        ('title', 'Array'),
+        ('items', items_mock.get_schema()),
+        ('additionalItems', additional_items_mock.get_schema()),
+        ('minItems', 0),
+        ('maxItems', 10),
+        ('uniqueItems', True),
+    ]
+    f = fields.ArrayField(items_mock, id='test', title='Array',
+                          min_items=0, max_items=10, unique_items=True,
+                          additional_items=additional_items_mock)
+    assert f.get_definitions_and_schema() == ({}, dict(expected_items))
+    definitions, ordered_schema = f.get_definitions_and_schema(ordered=True)
+    assert isinstance(ordered_schema, OrderedDict)
+    assert ordered_schema == OrderedDict(expected_items)
 
     f = fields.ArrayField(items_mock, additional_items=True)
     assert f.get_definitions_and_schema() == ({}, {
@@ -146,7 +164,6 @@ def test_array_field_to_schema():
         'additionalItems': True,
     })
 
-    additional_items_mock = fields.DictField()
     f = fields.ArrayField(items_mock, additional_items=additional_items_mock)
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'array',

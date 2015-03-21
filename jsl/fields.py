@@ -1,4 +1,5 @@
 # coding: utf-8
+from collections import OrderedDict
 import re
 import sre_constants
 import itertools
@@ -34,7 +35,7 @@ class BaseField(object):
     def __init__(self, required=False):
         self.required = required
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):  # pragma: no cover
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):  # pragma: no cover
         """Returns a tuple of two elements.
 
         The second element is a JSON schema of the data described by this field,
@@ -106,28 +107,27 @@ class BaseSchemaField(BaseField):
             default = self._default()
         return default
 
-    def _get_common_schema_fields(self, id=''):
-        rv = {}
+    def _update_schema_with_common_fields(self, schema, id=''):
         if id:
-            rv['id'] = id
+            schema['id'] = id
         if self.title is not None:
-            rv['title'] = self.title
+            schema['title'] = self.title
         if self.description is not None:
-            rv['description'] = self.description
+            schema['description'] = self.description
         if self.enum:
-            rv['enum'] = list(self.enum)
+            schema['enum'] = list(self.enum)
         if self._default is not None:
-            rv['default'] = self.default
-        return rv
+            schema['default'] = self.default
+        return schema
 
 
 class BooleanField(BaseSchemaField):
     """A boolean field."""
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
-        schema = {'type': 'boolean'}
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
+        schema = (OrderedDict if ordered else dict)(type='boolean')
         id, scope = scope.alter(self.id)
-        schema.update(self._get_common_schema_fields(id=id))
+        schema = self._update_schema_with_common_fields(schema, id=id)
         return {}, schema
 
 
@@ -158,10 +158,10 @@ class StringField(BaseSchemaField):
         self.min_length = min_length
         super(StringField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
-        schema = {'type': 'string'}
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
+        schema = (OrderedDict if ordered else dict)(type='string')
         id, scope = scope.alter(self.id)
-        schema.update(self._get_common_schema_fields(id=id))
+        schema = self._update_schema_with_common_fields(schema, id=id)
         if self.pattern:
             schema['pattern'] = self.pattern
         if self.min_length is not None:
@@ -218,10 +218,10 @@ class NumberField(BaseSchemaField):
         self.exclusive_maximum = exclusive_maximum
         super(NumberField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
-        schema = {'type': self._NUMBER_TYPE}
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
+        schema = (OrderedDict if ordered else dict)(type=self._NUMBER_TYPE)
         id, scope = scope.alter(self.id)
-        schema.update(self._get_common_schema_fields(id=id))
+        schema = self._update_schema_with_common_fields(schema, id=id)
         if self.multiple_of is not None:
             schema['multipleOf'] = self.multiple_of
         if self.minimum is not None:
@@ -275,40 +275,36 @@ class ArrayField(BaseSchemaField):
         self.additional_items = additional_items
         super(ArrayField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
         id, scope = scope.alter(self.id)
         if isinstance(self.items, (list, tuple)):
             nested_definitions = {}
             nested_schema = []
             for item in self.items:
                 item_definitions, item_schema = item.get_definitions_and_schema(
-                    scope=scope, ref_documents=ref_documents)
+                    scope=scope, ordered=ordered, ref_documents=ref_documents)
                 nested_definitions.update(item_definitions)
                 nested_schema.append(item_schema)
         else:
             nested_definitions, nested_schema = self.items.get_definitions_and_schema(
-                scope=scope, ref_documents=ref_documents)
-        schema = {
-            'type': 'array',
-            'items': nested_schema,
-        }
-        schema.update(self._get_common_schema_fields(id=id))
+                scope=scope, ordered=ordered, ref_documents=ref_documents)
+        schema = (OrderedDict if ordered else dict)(type='array')
+        schema = self._update_schema_with_common_fields(schema, id=id)
+        schema['items'] = nested_schema
+        if self.additional_items is not None:
+            if isinstance(self.additional_items, bool):
+                schema['additionalItems'] = self.additional_items
+            else:
+                items_definitions, items_schema = self.additional_items.get_definitions_and_schema(
+                    scope=scope, ordered=ordered, ref_documents=ref_documents)
+                schema['additionalItems'] = items_schema
+                nested_definitions.update(items_definitions)
         if self.min_items is not None:
             schema['minItems'] = self.min_items
         if self.max_items is not None:
             schema['maxItems'] = self.max_items
         if self.unique_items:
             schema['uniqueItems'] = True
-
-        if self.additional_items is not None:
-            if isinstance(self.additional_items, bool):
-                schema['additionalItems'] = self.additional_items
-            else:
-                items_definitions, items_schema = self.additional_items.get_definitions_and_schema(
-                    scope=scope, ref_documents=ref_documents)
-                schema['additionalItems'] = items_schema
-                nested_definitions.update(items_definitions)
-
         return nested_definitions, schema
 
     def iter_fields(self):
@@ -350,28 +346,28 @@ class DictField(BaseSchemaField):
         self.max_properties = max_properties
         super(DictField, self).__init__(**kwargs)
 
-    def _process_properties(self, properties, scope, ref_documents=None):
+    def _process_properties(self, properties, scope, ordered=False, ref_documents=None):
         nested_definitions = {}
-        schema = {}
+        schema = OrderedDict() if ordered else {}
         required = []
         for prop, field in iteritems(properties):
             field_definitions, field_schema = field.get_definitions_and_schema(
-                scope=scope, ref_documents=ref_documents)
+                scope=scope, ordered=ordered, ref_documents=ref_documents)
             if field.required:
                 required.append(prop)
             schema[prop] = field_schema
             nested_definitions.update(field_definitions)
         return nested_definitions, required, schema
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
         nested_definitions = {}
-        schema = {'type': 'object'}
+        schema = (OrderedDict if ordered else dict)(type='object')
         id, scope = scope.alter(self.id)
-        schema.update(self._get_common_schema_fields(id=id))
+        schema = self._update_schema_with_common_fields(schema, id=id)
 
         if self.properties is not None:
             properties_definitions, properties_required, properties_schema = self._process_properties(
-                self.properties, scope, ref_documents=ref_documents)
+                self.properties, scope, ordered=ordered, ref_documents=ref_documents)
             schema['properties'] = properties_schema
             if properties_required:
                 schema['required'] = properties_required
@@ -381,7 +377,7 @@ class DictField(BaseSchemaField):
             for key in iterkeys(self.pattern_properties):
                 _validate_regex(key)
             properties_definitions, _, properties_schema = self._process_properties(
-                self.pattern_properties, scope, ref_documents=ref_documents)
+                self.pattern_properties, scope, ordered=ordered, ref_documents=ref_documents)
             schema['patternProperties'] = properties_schema
             nested_definitions.update(properties_definitions)
 
@@ -390,7 +386,7 @@ class DictField(BaseSchemaField):
                 schema['additionalProperties'] = self.additional_properties
             else:
                 properties_definitions, properties_schema = self.additional_properties.get_definitions_and_schema(
-                    scope=scope, ref_documents=ref_documents)
+                    scope=scope, ordered=ordered, ref_documents=ref_documents)
                 schema['additionalProperties'] = properties_schema
                 nested_definitions.update(properties_definitions)
 
@@ -419,17 +415,18 @@ class BaseOfField(BaseSchemaField):
         self.fields = list(fields)
         super(BaseOfField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
         nested_definitions = {}
         one_of = []
         id, scope = scope.alter(self.id)
         for field in self.fields:
             field_definitions, field_schema = field.get_definitions_and_schema(
-                scope=scope, ref_documents=ref_documents)
+                scope=scope, ordered=ordered, ref_documents=ref_documents)
             nested_definitions.update(field_definitions)
             one_of.append(field_schema)
-        schema = {self._KEYWORD: one_of}
-        schema.update(self._get_common_schema_fields(id=id))
+        schema = OrderedDict() if ordered else {}
+        schema[self._KEYWORD] = one_of
+        schema = self._update_schema_with_common_fields(schema, id=id)
         return nested_definitions, schema
 
     def iter_fields(self):
@@ -470,12 +467,13 @@ class NotField(BaseSchemaField):
         self.field = field
         super(NotField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
         id, scope = scope.alter(self.id)
         field_definitions, field_schema = self.field.get_definitions_and_schema(
-            scope=scope, ref_documents=ref_documents)
-        schema = {'not': field_schema}
-        schema.update(self._get_common_schema_fields(id=id))
+            scope=scope, ordered=ordered, ref_documents=ref_documents)
+        schema = OrderedDict() if ordered else {}
+        schema['not'] = field_schema
+        schema = self._update_schema_with_common_fields(schema, id=id)
         return field_definitions, schema
 
 
@@ -508,13 +506,13 @@ class DocumentField(BaseField):
                                                          visited_documents=visited_documents):
                 yield field
 
-    def get_definitions_and_schema(self, scope=ResolutionScope(), ref_documents=None):
+    def get_definitions_and_schema(self, scope=ResolutionScope(), ordered=False, ref_documents=None):
         definition_id = self.document_cls._get_definition_id()
         if ref_documents and self.document_cls in ref_documents:
             return {}, scope.create_ref(definition_id)
         else:
             document_definitions, document_schema = self.document_cls.get_definitions_and_schema(
-                scope=scope, ref_documents=ref_documents)
+                scope=scope, ordered=ordered, ref_documents=ref_documents)
             if self.as_ref:
                 document_definitions[definition_id] = document_schema
                 return document_definitions, scope.create_ref(definition_id)
