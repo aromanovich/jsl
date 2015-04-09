@@ -1,0 +1,2 @@
+[report]
+omit = jsl/_compat/ordereddict.py

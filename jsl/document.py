@@ -1,6 +1,6 @@
 # coding: utf-8
-from collections import OrderedDict
 import inspect
+from collections import OrderedDict
 
 from . import registry
 from .fields import BaseField, DocumentField, DictField
@@ -8,7 +8,7 @@ from .scope import ResolutionScope
 from ._compat import iteritems, itervalues, with_metaclass
 
 
-def set_owner_to_document_fields(cls):
+def _set_owner_to_document_fields(cls):
     for field in itervalues(cls._fields):
         for field_ in field.walk(through_document_fields=False, visited_documents=set([cls])):
             if isinstance(field_, DocumentField):
@@ -86,7 +86,7 @@ class DocumentMeta(type):
 
         klass = type.__new__(mcs, name, bases, attrs)
         registry.put_document(klass.__name__, klass, module=klass.__module__)
-        set_owner_to_document_fields(klass)
+        _set_owner_to_document_fields(klass)
         return klass
 
     @classmethod

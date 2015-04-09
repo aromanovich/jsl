@@ -59,3 +59,9 @@ def urldefrag(url):
         defrag = url
         frag = ''
     return defrag, frag
+
+
+try:
+    from collections import OrderedDict
+except ImportError:
+    from .ordereddict import OrderedDict
