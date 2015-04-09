@@ -1,10 +1,9 @@
 # coding: utf-8
-from collections import OrderedDict
-
 import jsonschema
 
 from jsl.document import Document
 from jsl.fields import StringField, IntField, DocumentField, DateTimeField, ArrayField, OneOfField
+from jsl._compat import OrderedDict
 
 
 def check_field_schema(field):

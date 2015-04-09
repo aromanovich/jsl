@@ -1,12 +1,11 @@
 # coding: utf-8
-from collections import OrderedDict
-
 import mock
 import pytest
 import jsonschema
 
 from jsl import fields
 from jsl.document import Document
+from jsl._compat import OrderedDict
 
 
 def check_field_schema(field):

@@ -1,12 +1,11 @@
 # coding: utf-8
-from collections import OrderedDict
 import re
 import sre_constants
 import itertools
 
 from . import registry
 from .scope import ResolutionScope
-from ._compat import iteritems, iterkeys, itervalues, string_types
+from ._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 
 
 RECURSIVE_REFERENCE_CONSTANT = 'self'

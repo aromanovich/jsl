@@ -1,11 +1,10 @@
 # coding: utf-8
 import inspect
-from collections import OrderedDict
 
 from . import registry
 from .fields import BaseField, DocumentField, DictField
 from .scope import ResolutionScope
-from ._compat import iteritems, itervalues, with_metaclass
+from ._compat import iteritems, itervalues, with_metaclass, OrderedDict
 
 
 def _set_owner_to_document_fields(cls):
