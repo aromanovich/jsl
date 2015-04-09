@@ -12,7 +12,7 @@ __title__ = 'JSL'
 __author__ = 'Anton Romanovich'
 __license__ = 'BSD'
 __copyright__ = 'Copyright 2015 Anton Romanovich'
-__version__ = '0.0.8'
+__version__ = '0.0.9'
 __version_info__ = tuple(int(i) for i in __version__.split('.'))
 
 

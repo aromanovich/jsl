@@ -170,7 +170,12 @@ class Document(with_metaclass(DocumentMeta)):
 
     @classmethod
     def get_schema(cls, ordered=False):
-        """Returns a JSON schema (draft v4) of the document."""
+        """Returns a JSON schema (draft v4) of the document.
+
+        :arg ordered:
+            If True, the resulting schema is an OrderedDict and its properties are ordered
+            in a sensible way, which makes it more readable.
+        """
         definitions, schema = cls.get_definitions_and_schema(
             scope=ResolutionScope(base=cls._options.id, current=cls._options.id),
             ordered=ordered
@@ -192,6 +197,13 @@ class Document(with_metaclass(DocumentMeta)):
         The second element is a JSON schema of the document, and the first is a dictionary
         containing definitions that are referenced from the schema.
 
+        :arg ordered:
+            If True, the resulting schema is an OrderedDict and its properties are ordered
+            in a sensible way, which makes it more readable.
+        :type ordered: bool
+        :arg scope:
+            Current resolution scope.
+        :type scope: :class:`.scope.ResolutionScope`
         :arg ref_documents:
             If subclass of :class:`Document` is in this set, all :class:`DocumentField` s
             pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.

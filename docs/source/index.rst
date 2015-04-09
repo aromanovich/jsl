@@ -201,6 +201,12 @@ Schema Fields
 Changelog
 ---------
 
+0.0.9: 2014-04-10
+~~~~~~~~~~~~~~~~~
+
+- Introduce the ``ordered`` argument for :meth:`~jsl.document.Document.get_schema` that
+  adds the ability to create more readable JSON schemas with ordered parameters.
+
 0.0.8: 2014-03-21
 ~~~~~~~~~~~~~~~~~
 
