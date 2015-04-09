@@ -3,7 +3,7 @@ import jsonschema
 
 from jsl.document import Document
 from jsl.fields import StringField, IntField, DocumentField, DateTimeField, ArrayField, OneOfField
-from jsl._compat import OrderedDict
+from jsl._compat import OrderedDict, iterkeys
 
 
 def check_field_schema(field):
@@ -143,7 +143,7 @@ def test_recursive_definitions_1():
     schema = A.get_schema(ordered=True)
     assert isinstance(schema, OrderedDict)
     assert schema == expected_schema
-    assert list(schema.iterkeys()) == ['id', '$schema', 'definitions', '$ref']
+    assert list(iterkeys(schema)) == ['id', '$schema', 'definitions', '$ref']
     check_field_schema(A)
 
     # let's make sure that all the references in resulting schema
