@@ -159,7 +159,8 @@ def test_document_field():
 
     # test iter_fields method
     assert list(field.iter_fields()) == [A.b]
-    assert sorted(list(field.iter_fields(role='response'))) == sorted([A.b, A.id.values['response']])
+    assert (sorted(list(field.iter_fields(role='response')), key=id) ==
+            sorted([A.b, A.id.values['response']], key=id))
 
     # test walk method
     w = list(field.walk())
@@ -169,10 +170,11 @@ def test_document_field():
     assert w == [field, A.b]
 
     w = list(field.walk(through_document_fields=True, role='response'))
-    assert sorted(w) == sorted([field, A.b, A.id.values['response'], B.name.values['response']])
+    assert (sorted(w, key=id) ==
+            sorted([field, A.b, A.id.values['response'], B.name.values['response']], key=id))
 
     w = list(field.walk(through_document_fields=True, role='request'))
-    assert sorted(w) == sorted([field, A.b, B.name.values['request']])
+    assert sorted(w, key=id) == sorted([field, A.b, B.name.values['request']], key=id)
 
     class X(Document):
         pass
@@ -206,7 +208,7 @@ def test_basics():
         created_at = DateTimeField(required=True)
         author = Var({'response': DocumentField(User)}, roles_to_pass_down=['response'])
 
-    assert Task.get_schema() == {
+    expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'additionalProperties': False,
         'description': 'A task.',
@@ -220,6 +222,10 @@ def test_basics():
         'title': 'Task',
         'type': 'object'
     }
+    schema = Task.get_schema()
+    expected_schema['required'].sort()
+    schema['required'].sort()
+    assert schema == expected_schema
 
     expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
