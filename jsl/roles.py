@@ -1,17 +1,48 @@
 # coding: utf-8
-from ._compat import itervalues
+from ._compat import itervalues, OrderedDict, iteritems
 
 
 DEFAULT_ROLE = 'default'
 
 
-class Var(object):
+
+class BaseVar(object):
+    def resolve(self, role):
+        raise NotImplementedError()
+
+
+class Var(BaseVar):
+    """
+    :type values: dict or list of key-value tuples
+    """
     def __init__(self, values=None, roles_to_pass_down=(), **kwargs):
         self.values = kwargs if values is None else values
         self.roles_to_pass_down = roles_to_pass_down
 
+    def resolve(self, role_to_resolve):
+        for role, value in iteritems(OrderedDict(self.values)):
+            if isinstance(role, Not):
+                if role != role_to_resolve:
+                    return value
+            elif isinstance(role, basestring) and role == role_to_resolve:
+                return value
+        return None
+
+
+class Not(str):
+    pass
+
+
+class IfNot(BaseVar):
+    def __init__(self, role, value, roles_to_pass_down=()):
+        self.role = role
+        self.value = value
+        self.roles_to_pass_down = roles_to_pass_down
+
     def resolve(self, role):
-        return self.values.get(role)
+        if role == self.role:
+            return self.value
+        return None
 
 
 def maybe_resolve_all_roles(value):

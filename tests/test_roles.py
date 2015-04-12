@@ -3,8 +3,32 @@ import pytest
 
 from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentField, IntField,
                  DateTimeField, NumberField, DictField, NotField,
-                 AllOfField, AnyOfField, OneOfField,
-                 Var)
+                 AllOfField, AnyOfField, OneOfField)
+from jsl.roles import Var, Not
+
+
+def test_var():
+    value_1 = object()
+    value_2 = object()
+    value_3 = object()
+    var = Var([
+        ('role_1', value_1),
+        ('role_2', value_2),
+        (Not('role_3'), value_3),
+    ])
+    assert var.resolve('role_1') == value_1
+    assert var.resolve('role_2') == value_2
+    assert var.resolve('default') == value_3
+
+    var = Var([
+        (Not('role_3'), value_3),
+        ('role_1', value_1),
+        ('role_2', value_2),
+    ])
+    assert var.resolve('role_1') == value_3
+    assert var.resolve('role_2') == value_3
+    assert var.resolve('default') == value_3
+    assert var.resolve('role_3') is None
 
 
 def test_base_field():
