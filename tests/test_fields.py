@@ -15,17 +15,17 @@ def check_field_schema(field):
 def test_base_schema_field():
     f = fields.BaseSchemaField()
     assert not f.required
-    assert not f.default
-    assert not f.enum
+    assert not f.get_default()
+    assert not f.get_enum()
 
     f = fields.BaseSchemaField(required=True)
     assert f.required
 
     f = fields.BaseSchemaField(default=123)
-    assert f.default == 123
+    assert f.get_default() == 123
 
     f = fields.BaseSchemaField(default=lambda: 123)
-    assert f.default == 123
+    assert f.get_default() == 123
 
     f = fields.BaseSchemaField(title='Title', description='Description',
                                enum=lambda: [1, 2, 3], default=lambda: 123)
@@ -293,7 +293,7 @@ def test_document_field():
     expected_schema = mock.Mock()
     attrs = {
         'get_definitions_and_schema.return_value': ({}, expected_schema),
-        '_get_definition_id.return_value': 'document.Document',
+        'get_definition_id.return_value': 'document.Document',
     }
     document_cls_mock.configure_mock(**attrs)
 

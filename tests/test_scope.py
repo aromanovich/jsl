@@ -24,3 +24,6 @@ def test_scope():
 
     assert scope._base == 'http://example.com/'
     assert scope._current == scope._output == 'http://example.com/schema/subschema.json'
+
+    # test __repr__
+    assert scope._base in repr(scope)

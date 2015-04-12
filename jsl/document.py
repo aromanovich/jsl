@@ -2,16 +2,17 @@
 import inspect
 
 from . import registry
-from .fields import BaseField, DocumentField, DictField
+from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
+from .roles import Var
 from .scope import ResolutionScope
 from ._compat import iteritems, itervalues, with_metaclass, OrderedDict
 
 
 def _set_owner_to_document_fields(cls):
-    for field in itervalues(cls._fields):
-        for field_ in field.walk(through_document_fields=False, visited_documents=set([cls])):
-            if isinstance(field_, DocumentField):
-                field_.set_owner(cls)
+    for field_ in cls.walk(through_document_fields=False, visited_documents=set([cls])):
+        if isinstance(field_, DocumentField):
+            field_.set_owner(cls)
+    return
 
 
 class Options(object):
@@ -102,7 +103,7 @@ class DocumentMeta(type):
                 fields.update(base._fields)
         # and from the current class:
         for key, value in iteritems(attrs):
-            if isinstance(value, BaseField):
+            if isinstance(value, (BaseField, Var)):
                 fields[key] = value
         return fields
 
@@ -153,23 +154,23 @@ class Document(with_metaclass(DocumentMeta)):
             login = StringField(required=True)
     """
     @classmethod
-    def _is_recursive(cls):
+    def is_recursive(cls, role=DEFAULT_ROLE):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
         for field in cls.walk(through_document_fields=True, visited_documents=set([cls])):
             if isinstance(field, DocumentField):
-                if field.document_cls == cls:
+                if field.get_document_cls(role=role) == cls:
                     return True
         return False
 
     @classmethod
-    def _get_definition_id(cls):
+    def get_definition_id(cls):
         """Returns a unique string to be used as a key for this document
         in the "definitions" schema section.
         """
         return cls._options.definition_id or '{0}.{1}'.format(cls.__module__, cls.__name__)
 
     @classmethod
-    def get_schema(cls, ordered=False):
+    def get_schema(cls, role=DEFAULT_ROLE, ordered=False):
         """Returns a JSON schema (draft v4) of the document.
 
         :arg ordered:
@@ -177,8 +178,8 @@ class Document(with_metaclass(DocumentMeta)):
             in a sensible way, which makes it more readable.
         """
         definitions, schema = cls.get_definitions_and_schema(
-            scope=ResolutionScope(base=cls._options.id, current=cls._options.id),
-            ordered=ordered
+            role=role, ordered=ordered,
+            scope=ResolutionScope(base=cls._options.id, current=cls._options.id)
         )
         rv = OrderedDict() if ordered else {}
         if cls._options.id:
@@ -191,7 +192,8 @@ class Document(with_metaclass(DocumentMeta)):
         return rv
 
     @classmethod
-    def get_definitions_and_schema(cls, scope=ResolutionScope(), ordered=False, ref_documents=None):
+    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, scope=ResolutionScope(),
+                                   ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 
         The second element is a JSON schema of the document, and the first is a dictionary
@@ -211,7 +213,7 @@ class Document(with_metaclass(DocumentMeta)):
         :type ref_documents: set
         :rtype: (dict, dict)
         """
-        is_recursive = cls._is_recursive()
+        is_recursive = cls.is_recursive()
 
         if is_recursive:
             ref_documents = set(ref_documents) if ref_documents else set()
@@ -219,10 +221,10 @@ class Document(with_metaclass(DocumentMeta)):
             scope = scope.replace(output=scope._base)
 
         definitions, schema = cls._field.get_definitions_and_schema(
-            scope=scope, ordered=ordered, ref_documents=ref_documents)
+            role=role, scope=scope, ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
-            definition_id = cls._get_definition_id()
+            definition_id = cls.get_definition_id()
             definitions[definition_id] = schema
             schema = scope.create_ref(definition_id)
 

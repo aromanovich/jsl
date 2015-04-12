@@ -34,8 +34,8 @@ def test_to_schema():
         created_at = DateTimeField(required=True)
         author = DocumentField(User)
 
-    assert Resource._get_definition_id() == 'test_document.Resource'
-    assert Task._get_definition_id() == 'task'
+    assert Resource.get_definition_id() == 'test_document.Resource'
+    assert Task.get_definition_id() == 'task'
 
     task_schema = Task.get_schema()
     task_schema['required'].sort()
