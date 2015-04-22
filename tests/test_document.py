@@ -74,6 +74,21 @@ def test_document_options():
     assert Child._options.additional_properties
 
 
+def test_document_fields_order():
+    class A(Document):
+        z = StringField()
+        x = StringField()
+        a = StringField()
+        b = StringField()
+        c = StringField()
+        y = StringField()
+        d = StringField()
+        e = StringField()
+    order = ''.join(A.get_schema(ordered=True)['properties'])
+    expected_order = 'zxabcyde'
+    assert order == expected_order
+
+
 def test_recursive_definitions_1():
     class A(Document):
         class Options(object):

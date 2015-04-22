@@ -5,7 +5,8 @@ from . import registry
 from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
 from .roles import Var
 from .scope import ResolutionScope
-from ._compat import iteritems, itervalues, with_metaclass, OrderedDict
+from ._compat import iteritems, with_metaclass, OrderedDict
+from ._compat.prepareable import Prepareable
 
 
 def _set_owner_to_document_fields(cls):
@@ -49,7 +50,7 @@ class Options(object):
         self.schema_uri = schema_uri
 
 
-class DocumentMeta(type):
+class DocumentMeta(with_metaclass(Prepareable, type)):
     """
     A metaclass for :class:`~.Document`. It's responsible for collecting fields and options,
     registering the document in the registry, making it the owner of nested
@@ -60,6 +61,10 @@ class DocumentMeta(type):
     A class to be used by :meth:`~.DocumentMeta.create_options`.
     Must be a subclass of :class:`~.Options`.
     """
+
+    @classmethod
+    def __prepare__(mcs, name, bases):
+        return OrderedDict()
 
     def __new__(mcs, name, bases, attrs):
         fields = mcs.collect_fields(bases, attrs)
@@ -96,7 +101,7 @@ class DocumentMeta(type):
 
         :rtype: a dictionary mapping field names to :class:`~jsl.document.BaseField` s
         """
-        fields = {}
+        fields = OrderedDict()
         # fields from parent classes:
         for base in reversed(bases):
             if hasattr(base, '_fields'):
