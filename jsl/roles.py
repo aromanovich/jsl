@@ -1,5 +1,5 @@
 # coding: utf-8
-from ._compat import itervalues, OrderedDict, iteritems
+from ._compat import itervalues, OrderedDict, iteritems, string_types
 
 
 DEFAULT_ROLE = 'default'
@@ -24,7 +24,7 @@ class Var(BaseVar):
             if isinstance(role, Not):
                 if role != role_to_resolve:
                     return value
-            elif isinstance(role, basestring) and role == role_to_resolve:
+            elif isinstance(role, string_types) and role == role_to_resolve:
                 return value
         return None
 
