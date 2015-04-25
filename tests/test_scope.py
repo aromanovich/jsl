@@ -8,9 +8,9 @@ def test_scope():
     id, scope = scope.alter('w')
     assert id == 'w'
 
-    assert scope._base == ''
-    assert scope._current == 'w'
-    assert scope._output == 'w'
+    assert scope.base == ''
+    assert scope.current == 'w'
+    assert scope.output == 'w'
 
     scope = ResolutionScope(base='http://example.com/#garbage')
     assert scope.create_ref('a') == {'$ref': '#/definitions/a'}
@@ -22,8 +22,8 @@ def test_scope():
     id, scope = scope.alter('#hash')
     assert id == '#hash'
 
-    assert scope._base == 'http://example.com/'
-    assert scope._current == scope._output == 'http://example.com/schema/subschema.json'
+    assert scope.base == 'http://example.com/'
+    assert scope.current == scope.output == 'http://example.com/schema/subschema.json'
 
     # test __repr__
-    assert scope._base in repr(scope)
+    assert scope.base in repr(scope)

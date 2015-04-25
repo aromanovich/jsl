@@ -4,7 +4,16 @@ import pytest
 from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentField, IntField,
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
-from jsl.roles import Var, Scope, not_, maybe_resolve, all_but
+from jsl._compat import iteritems
+from jsl.roles import Var, Scope, not_, maybe_resolve, all_but, FuncMatcher, all_
+
+
+def sort_required_keys(schema):
+    for key, value in iteritems(schema):
+        if key == 'required' and isinstance(value, list):
+            value.sort()
+        elif isinstance(value, dict):
+            sort_required_keys(value)
 
 
 def test_var():
@@ -37,10 +46,27 @@ RESPONSE_ROLE = 'response'
 PARTIAL_RESPONSE_ROLE = RESPONSE_ROLE + '_partial'
 
 
-def test_scopes():
+def test_helpers():
+    when = lambda *args: Var({
+        all_but(*args): False
+    }, default=True)
+
+    assert when(RESPONSE_ROLE).resolve(RESPONSE_ROLE)
+    assert not when(RESPONSE_ROLE).resolve(REQUEST_ROLE)
+
+    assert FuncMatcher(lambda r: r == '123').match('123')
+    assert FuncMatcher(all_()).match('123')
+    assert not FuncMatcher(all_but('123')).match('123')
+
+
+def test_scopes_basics():
     when_not = lambda *args: Var({
-        all_but(args): True
+        all_but(*args): True
     }, default=False)
+
+    when = lambda *args: Var({
+        all_but(*args): False
+    }, default=True)
 
     class Message(Document):
         with Scope(DB_ROLE) as db:
@@ -57,13 +83,81 @@ def test_scopes():
             db.version = StringField(required=True)
         with Scope(lambda r: r.startswith(RESPONSE_ROLE) or r == REQUEST_ROLE) as response:
             response.id = StringField(required=when_not(PARTIAL_RESPONSE_ROLE))
-        messages = ArrayField(DocumentField(Message), required=when_not(PARTIAL_RESPONSE_ROLE))
+        with Scope(all_but(REQUEST_ROLE)) as request:
+            request.messages = ArrayField(DocumentField(Message), required=when_not(PARTIAL_RESPONSE_ROLE))
 
-    from pprint import pprint
-    for role in (DB_ROLE, RESPONSE_ROLE, REQUEST_ROLE, PARTIAL_RESPONSE_ROLE):
-        pass
-        #print role
-        #pprint(User.get_schema(role=role))
+    schema = User.get_schema(role=DB_ROLE)
+    sort_required_keys(schema)
+    expected_required = sorted(['_id', 'version', 'messages'])
+    expected_properties = {
+        '_id': {'type': 'string'},
+        'version': {'type': 'string'},
+        'messages': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'created_at': {'type': 'integer'},
+                    'text': {'type': 'string'},
+                    'uuid': {'type': 'string'}
+                },
+                'required': sorted(['uuid', 'created_at', 'text']),
+            },
+        },
+    }
+    assert schema['required'] == expected_required
+    assert schema['properties'] == expected_properties
+
+    schema = User.get_schema(role=REQUEST_ROLE)
+    sort_required_keys(schema)
+    expected_required = sorted(['id'])
+    expected_properties = {
+        'id': {'type': 'string'},
+    }
+    assert schema['required'] == expected_required
+    assert schema['properties'] == expected_properties
+
+    schema = User.get_schema(role=RESPONSE_ROLE)
+    sort_required_keys(schema)
+    expected_required = sorted(['id', 'messages'])
+    expected_properties = {
+        'id': {'type': 'string'},
+        'messages': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'created_at': {'type': 'integer'},
+                    'text': {'type': 'string'},
+                },
+                'required': sorted(['created_at', 'text']),
+            },
+        },
+    }
+    assert schema['required'] == expected_required
+    assert schema['properties'] == expected_properties
+
+    schema = User.get_schema(role=PARTIAL_RESPONSE_ROLE)
+    sort_required_keys(schema)
+    expected_properties = {
+        'id': {'type': 'string'},
+        'messages': {
+            'type': 'array',
+            'items': {
+                'type': 'object',
+                'additionalProperties': False,
+                'properties': {
+                    'created_at': {'type': 'integer'},
+                    'text': {'type': 'string'},
+                },
+                'required': sorted(['created_at', 'text']),
+            },
+        },
+    }
+    assert 'required' not in schema
+    assert schema['properties'] == expected_properties
 
 
 def test_base_field():
@@ -219,12 +313,15 @@ def test_document_field():
 
     field = DocumentField(A)
 
-    # test iter_fields method
-    assert list(field.iter_fields()) == [A.b]
-    assert (sorted(list(field.iter_fields(role='response')), key=id) ==
-            sorted([A.b, maybe_resolve(A.id, 'response')], key=id))
-
     # test walk method
+    assert list(field.walk()) == [field]
+
+    assert (sorted(field.walk(through_document_fields=True), key=id) ==
+            sorted([field, A.b], key=id))
+
+    assert (sorted(field.walk(role='response', through_document_fields=True), key=id) ==
+            sorted([field, A.b, maybe_resolve(A.id, 'response'), maybe_resolve(B.name, 'response')], key=id))
+
     w = list(field.walk())
     assert w == [field]
 
@@ -246,20 +343,6 @@ def test_document_field():
         A.b,
         maybe_resolve(B.name, 'request')
     ], key=id)
-
-    class X(Document):
-        pass
-
-    class Y(Document):
-        pass
-
-    field = DocumentField(Var({
-        'role_1': X,
-        'role_2': Y
-    }))
-    assert field.get_document_cls() is None
-    assert field.get_document_cls(role='role_1') == X
-    assert field.get_document_cls(role='role_2') == Y
 
 
 def test_basics():

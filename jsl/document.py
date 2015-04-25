@@ -2,8 +2,9 @@
 import inspect
 
 from . import registry
+import types
 from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
-from .roles import Var, Scope, all_
+from .roles import Var, Scope, all_, construct_matcher
 from .scope import ResolutionScope
 from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict
 from ._compat.prepareable import Prepareable
@@ -37,7 +38,7 @@ class Options(object):
                  title=None, description=None,
                  default=None, enum=None,
                  id='', schema_uri='http://json-schema.org/draft-04/schema#',
-                 definition_id=None, roles_to_propagate=all_()):
+                 definition_id=None, roles_to_propagate=None):
         self.pattern_properties = pattern_properties
         self.additional_properties = additional_properties
         self.min_properties = min_properties
@@ -50,7 +51,7 @@ class Options(object):
         self.schema_uri = schema_uri
 
         self.definition_id = definition_id
-        self.roles_to_propagate = roles_to_propagate
+        self.roles_to_propagate = construct_matcher(roles_to_propagate or all_())
 
 
 class DocumentMeta(with_metaclass(Prepareable, type)):
@@ -149,10 +150,14 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
                 for key, value in inspect.getmembers(base._options):
                     if not key.startswith('_') and value is not None:
                         options[key] = value
+
         # options from the current class:
         if 'Options' in attrs:
             for key, value in inspect.getmembers(attrs['Options']):
                 if not key.startswith('_') and value is not None:
+                    # HACK HACK HACK
+                    if inspect.ismethod(value) and value.im_self is None:
+                        value = value.im_func
                     options[key] = value
         return options
 
@@ -186,7 +191,7 @@ class Document(with_metaclass(DocumentMeta)):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
         for field in cls.walk(through_document_fields=True, visited_documents=set([cls])):
             if isinstance(field, DocumentField):
-                if field.get_document_cls(role=role) == cls:
+                if field.document_cls == cls:
                     return True
         return False
 
@@ -220,7 +225,8 @@ class Document(with_metaclass(DocumentMeta)):
         return rv
 
     @classmethod
-    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, current_document=None,
+                                   scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 
@@ -246,10 +252,11 @@ class Document(with_metaclass(DocumentMeta)):
         if is_recursive:
             ref_documents = set(ref_documents) if ref_documents else set()
             ref_documents.add(cls)
-            scope = scope.replace(output=scope._base)
+            scope = scope.replace(output=scope.base)
 
         definitions, schema = cls._field.get_definitions_and_schema(
-            role=role, scope=scope, ordered=ordered, ref_documents=ref_documents)
+            role=role, current_document=cls, scope=scope,
+            ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
             definition_id = cls.get_definition_id()

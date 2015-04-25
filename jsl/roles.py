@@ -19,7 +19,7 @@ def all_():
 
 
 def all_but(*args):
-    return lambda r: r not in args
+    return lambda r: (r not in args)
 
 
 class BaseMatcher(object):
@@ -43,6 +43,18 @@ class FuncMatcher(BaseMatcher):
         return self.func(role)
 
 
+def construct_matcher(matcher):
+    if isinstance(matcher, BaseMatcher):
+        return matcher
+    elif isinstance(matcher, string_types):
+        return EqualityMatcher(matcher)
+    elif callable(matcher):
+        return FuncMatcher(matcher)
+    else:
+        raise ValueError('Unknown matcher type: {!r}. Only :class:`BaseMatcher`, '
+                         'strings and callables are supported.'.format(matcher))
+
+
 class Var(BaseVar):
     """
     :type values: dict or list of key-value tuples
@@ -53,27 +65,15 @@ class Var(BaseVar):
         if values is not None:
             values = iteritems(values) if isinstance(values, dict) else values
             for matcher, value in values:
-                matcher = self._construct_matcher(matcher)
+                matcher = construct_matcher(matcher)
                 self._values.append((matcher, value))
         self.default = default
         if all([terminate, propagate]):
             raise ValueError('terminate and proparate can not be specified at the same time.')
         if not any([terminate, propagate]):
             raise ValueError('Either terminate or proparate must be specified.')
-        self._terminate = self._construct_matcher(terminate) if terminate else None
-        self._propagate = self._construct_matcher(propagate) if propagate else None
-
-    @classmethod
-    def _construct_matcher(cls, matcher):
-        if isinstance(matcher, BaseMatcher):
-            return matcher
-        elif isinstance(matcher, string_types):
-            return EqualityMatcher(matcher)
-        elif callable(matcher):
-            return FuncMatcher(matcher)
-        else:
-            raise ValueError('Unknown matcher type: {!r}. Only :class:`BaseMatcher`, '
-                             'strings and callables are supported.'.format(matcher))
+        self._terminate = construct_matcher(terminate) if terminate else None
+        self._propagate = construct_matcher(propagate) if propagate else None
 
     @property
     def values(self):

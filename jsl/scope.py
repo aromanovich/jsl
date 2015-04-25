@@ -21,6 +21,10 @@ class ResolutionScope(object):
         self._current, _ = urldefrag(current)
         self._output, _ = urldefrag(output)
 
+    base = property(lambda self: self._base)
+    current = property(lambda self: self._current)
+    output = property(lambda self: self._output)
+
     def __repr__(self):
         return 'ResolutionScope(\n  base={0},\n  current={1},\n  output={2}\n)'.format(
             self._base, self._current, self._output)
