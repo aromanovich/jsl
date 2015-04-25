@@ -5,11 +5,6 @@ from ._compat import OrderedDict, iteritems, string_types
 DEFAULT_ROLE = 'default'
 
 
-class BaseVar(object):
-    def resolve(self, role):
-        raise NotImplementedError()
-
-
 def not_(role):
     return lambda r: r != role
 
@@ -55,7 +50,15 @@ def construct_matcher(matcher):
                          'strings and callables are supported.'.format(matcher))
 
 
-class Var(BaseVar):
+class Resolvable(object):
+    def resolve(self, role):
+        raise NotImplementedError()
+
+    def resolve_2(self, role):
+        raise NotImplementedError()
+
+
+class Var(Resolvable):
     """
     :type values: dict or list of key-value tuples
     """
@@ -127,21 +130,3 @@ class Scope(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
-
-
-def maybe_resolve_all_roles(value):
-    if isinstance(value, Var):
-        return [v for _, v in value.values]
-    return [value]
-
-
-def maybe_resolve(value, role):
-    if isinstance(value, Var):
-        return value.resolve(role)
-    return value
-
-
-def maybe_resolve_2(value, role):
-    if isinstance(value, Var):
-        return value.resolve_2(role)
-    return value, role

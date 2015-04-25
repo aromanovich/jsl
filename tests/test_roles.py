@@ -5,7 +5,7 @@ from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentFie
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
 from jsl._compat import iteritems
-from jsl.roles import Var, Scope, not_, maybe_resolve, all_but, FuncMatcher, all_
+from jsl.roles import Var, Scope, not_, all_but, FuncMatcher, all_
 
 
 def sort_required_keys(schema):
@@ -313,35 +313,23 @@ def test_document_field():
 
     field = DocumentField(A)
 
-    # test walk method
     assert list(field.walk()) == [field]
 
     assert (sorted(field.walk(through_document_fields=True), key=id) ==
             sorted([field, A.b], key=id))
 
     assert (sorted(field.walk(role='response', through_document_fields=True), key=id) ==
-            sorted([field, A.b, maybe_resolve(A.id, 'response'), maybe_resolve(B.name, 'response')], key=id))
-
-    w = list(field.walk())
-    assert w == [field]
-
-    w = list(field.walk(through_document_fields=True))
-    assert w == [field, A.b]
-
-    w = list(field.walk(through_document_fields=True, role='response'))
-    assert (sorted(w, key=id) ==
             sorted([
                 field,
                 A.b,
-                maybe_resolve(A.id, 'response'),
-                maybe_resolve(B.name, 'response')
+                A.resolve_field('id', 'response'),
+                B.resolve_field('name', 'response')
             ], key=id))
 
-    w = list(field.walk(through_document_fields=True, role='request'))
-    assert sorted(w, key=id) == sorted([
+    assert sorted(field.walk(through_document_fields=True, role='request'), key=id) == sorted([
         field,
         A.b,
-        maybe_resolve(B.name, 'request')
+        B.resolve_field('name', 'request')
     ], key=id)
 
 

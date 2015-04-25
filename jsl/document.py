@@ -191,6 +191,10 @@ class Document(with_metaclass(DocumentMeta)):
         return False
 
     @classmethod
+    def resolve_field(cls, field, role=DEFAULT_ROLE):
+        return getattr(cls, field).resolve(role)
+
+    @classmethod
     def get_definition_id(cls):
         """Returns a unique string to be used as a key for this document
         in the "definitions" schema section.
