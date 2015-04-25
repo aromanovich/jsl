@@ -1,4 +1,4 @@
-from jsl.scope import ResolutionScope
+from jsl.resolutionscope import ResolutionScope
 
 
 def test_scope():

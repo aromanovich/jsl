@@ -5,7 +5,7 @@ from . import registry
 import types
 from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
 from .roles import Var, Scope, all_, construct_matcher
-from .scope import ResolutionScope
+from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict
 from ._compat.prepareable import Prepareable
 

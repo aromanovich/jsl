@@ -4,7 +4,7 @@ import sre_constants
 
 from . import registry
 from .roles import maybe_resolve, maybe_resolve_2, DEFAULT_ROLE, maybe_resolve_all_roles, construct_matcher
-from .scope import ResolutionScope
+from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 
 
