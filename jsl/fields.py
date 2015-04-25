@@ -630,8 +630,7 @@ class DocumentField(BaseField):
                         role=new_role, current_document=current_document,
                         through_document_fields=through_document_fields,
                         visited_documents=visited_documents):
-                    if field != document_cls._field:  # TODO feels like a hack, move to Document
-                        yield field
+                    yield field
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, current_document=None,
                                    scope=ResolutionScope(), ordered=False, ref_documents=None):

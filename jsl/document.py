@@ -2,12 +2,10 @@
 import inspect
 
 from . import registry
-import types
 from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
 from .roles import Var, Scope, all_, construct_matcher
 from .resolutionscope import ResolutionScope
-from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict
-from ._compat.prepareable import Prepareable
+from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
 
 
 def _set_owner_to_document_fields(cls):
@@ -77,7 +75,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
 
         attrs['_fields'] = fields
         attrs['_options'] = options
-        dictfield = DictField(
+        attrs['_field'] = DictField(
             properties=fields,
             pattern_properties=options.pattern_properties,
             additional_properties=options.additional_properties,
@@ -89,9 +87,6 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
             default=options.default,
             id=options.id,
         )
-        attrs['_field'] = dictfield
-        attrs['walk'] = dictfield.walk
-        attrs['iter_fields'] = dictfield.iter_fields
 
         klass = type.__new__(mcs, name, bases, attrs)
         registry.put_document(klass.__name__, klass, module=klass.__module__)
@@ -201,6 +196,21 @@ class Document(with_metaclass(DocumentMeta)):
         in the "definitions" schema section.
         """
         return cls._options.definition_id or '{0}.{1}'.format(cls.__module__, cls.__name__)
+
+    @classmethod
+    def iter_fields(cls, role=DEFAULT_ROLE):
+        for field in cls._field.iter_fields(role=role):
+            yield field
+
+    @classmethod
+    def walk(cls, role=DEFAULT_ROLE, current_document=None,
+             through_document_fields=False, visited_documents=frozenset()):
+        fields = cls._field.walk(role=role, current_document=current_document,
+                                     through_document_fields=through_document_fields,
+                                     visited_documents=visited_documents)
+        fields.next()  # we don't want to yield _field itself
+        for field in fields:
+            yield field
 
     @classmethod
     def get_schema(cls, role=DEFAULT_ROLE, ordered=False):
