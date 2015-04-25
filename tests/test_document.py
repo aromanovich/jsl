@@ -75,7 +75,7 @@ def test_document_options():
 
 
 def test_document_fields_order():
-    class A(Document):
+    class Letters(Document):
         z = StringField()
         x = StringField()
         a = StringField()
@@ -84,7 +84,7 @@ def test_document_fields_order():
         y = StringField()
         d = StringField()
         e = StringField()
-    order = ''.join(A.get_schema(ordered=True)['properties'])
+    order = ''.join(Letters.get_schema(ordered=True)['properties'])
     expected_order = 'zxabcyde'
     assert order == expected_order
 

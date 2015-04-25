@@ -584,7 +584,7 @@ class DocumentField(BaseField):
 
     def __init__(self, document_cls, as_ref=False, **kwargs):
         """
-        :type document_cls: basestring or BaseField
+        :type document_cls: basestring or BaseField or Var
         """
         self._document_cls = document_cls
         self.owner_cls = None

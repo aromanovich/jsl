@@ -3,9 +3,9 @@ import inspect
 
 from . import registry
 from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
-from .roles import Var
+from .roles import Var, Scope, all_
 from .scope import ResolutionScope
-from ._compat import iteritems, with_metaclass, OrderedDict
+from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict
 from ._compat.prepareable import Prepareable
 
 
@@ -36,7 +36,8 @@ class Options(object):
                  min_properties=None, max_properties=None,
                  title=None, description=None,
                  default=None, enum=None,
-                 id='', definition_id=None, schema_uri='http://json-schema.org/draft-04/schema#'):
+                 id='', schema_uri='http://json-schema.org/draft-04/schema#',
+                 definition_id=None, roles_to_propagate=all_()):
         self.pattern_properties = pattern_properties
         self.additional_properties = additional_properties
         self.min_properties = min_properties
@@ -46,8 +47,10 @@ class Options(object):
         self.default = default
         self.enum = enum
         self.id = id
-        self.definition_id = definition_id
         self.schema_uri = schema_uri
+
+        self.definition_id = definition_id
+        self.roles_to_propagate = roles_to_propagate
 
 
 class DocumentMeta(with_metaclass(Prepareable, type)):
@@ -106,10 +109,30 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
         for base in reversed(bases):
             if hasattr(base, '_fields'):
                 fields.update(base._fields)
+
+        to_be_replaced = object()
+
         # and from the current class:
+        pre_fields = OrderedDict()
+        scopes = []
         for key, value in iteritems(attrs):
             if isinstance(value, (BaseField, Var)):
-                fields[key] = value
+                pre_fields[key] = value
+            elif isinstance(value, Scope):
+                scopes.append(value)
+                for scope_key in iterkeys(value.__fields__):
+                    pre_fields[scope_key] = to_be_replaced
+
+        for name, field in iteritems(pre_fields):
+            if field is to_be_replaced:
+                values = []
+                for scope in scopes:
+                    if name in scope.__fields__:
+                        values.append((scope.__matcher__, scope.__fields__[name]))
+                fields[name] = Var(values)
+            else:
+                fields[name] = field
+
         return fields
 
     @classmethod

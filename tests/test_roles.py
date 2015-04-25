@@ -4,7 +4,7 @@ import pytest
 from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentField, IntField,
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
-from jsl.roles import Var, Not
+from jsl.roles import Var, Scope, not_, maybe_resolve, all_but
 
 
 def test_var():
@@ -14,14 +14,14 @@ def test_var():
     var = Var([
         ('role_1', value_1),
         ('role_2', value_2),
-        (Not('role_3'), value_3),
+        (not_('role_3'), value_3),
     ])
     assert var.resolve('role_1') == value_1
     assert var.resolve('role_2') == value_2
     assert var.resolve('default') == value_3
 
     var = Var([
-        (Not('role_3'), value_3),
+        (not_('role_3'), value_3),
         ('role_1', value_1),
         ('role_2', value_2),
     ])
@@ -29,6 +29,41 @@ def test_var():
     assert var.resolve('role_2') == value_3
     assert var.resolve('default') == value_3
     assert var.resolve('role_3') is None
+
+
+DB_ROLE = 'db'
+REQUEST_ROLE = 'request'
+RESPONSE_ROLE = 'response'
+PARTIAL_RESPONSE_ROLE = RESPONSE_ROLE + '_partial'
+
+
+def test_scopes():
+    when_not = lambda *args: Var({
+        all_but(args): True
+    }, default=False)
+
+    class Message(Document):
+        with Scope(DB_ROLE) as db:
+            db.uuid = StringField(required=True)
+        created_at = IntField(required=when_not(PARTIAL_RESPONSE_ROLE, REQUEST_ROLE))
+        text = StringField(required=when_not(PARTIAL_RESPONSE_ROLE))
+
+    class User(Document):
+        class Options(object):
+            roles_to_propagate = all_but(PARTIAL_RESPONSE_ROLE)
+
+        with Scope(DB_ROLE) as db:
+            db._id = StringField(required=True)
+            db.version = StringField(required=True)
+        with Scope(lambda r: r.startswith(RESPONSE_ROLE) or r == REQUEST_ROLE) as response:
+            response.id = StringField(required=when_not(PARTIAL_RESPONSE_ROLE))
+        messages = ArrayField(DocumentField(Message), required=when_not(PARTIAL_RESPONSE_ROLE))
+
+    from pprint import pprint
+    for role in (DB_ROLE, RESPONSE_ROLE, REQUEST_ROLE, PARTIAL_RESPONSE_ROLE):
+        pass
+        #print role
+        #pprint(User.get_schema(role=role))
 
 
 def test_base_field():
@@ -102,13 +137,17 @@ def test_dict_field():
     s_f = StringField()
     _ = lambda value: Var({'role_1': value})
     field = DictField(properties=Var(
-        role_1={'name': Var(role_1=s_f)},
-        role_2={'name': Var(role_2=s_f)},
-        roles_to_pass_down=['role_1']
+        {
+            'role_1': {'name': Var({'role_1': s_f})},
+            'role_2': {'name': Var({'role_2': s_f})},
+        },
+        propagate='role_1'
     ), pattern_properties=Var(
-        role_1={'.*': Var(role_1=s_f)},
-        role_2={'.*': Var(role_2=s_f)},
-        roles_to_pass_down=['role_1']
+        {
+            'role_1': {'.*': Var({'role_1': s_f})},
+            'role_2': {'.*': Var({'role_2': s_f})},
+        },
+        propagate='role_1'
     ), additional_properties=_(s_f), min_properties=_(1), max_properties=_(2))
     assert field.get_schema() == {
         'type': 'object'
@@ -138,7 +177,7 @@ def test_keyword_of_fields(keyword, field_cls):
     s_f = StringField()
     n_f = NumberField()
     i_f = IntField()
-    field = field_cls([n_f, Var(role_1=s_f), Var(role_2=i_f)])
+    field = field_cls([n_f, Var({'role_1': s_f}), Var({'role_2': i_f})])
     assert field.get_schema() == {
         keyword: [n_f.get_schema()]
     }
@@ -149,11 +188,10 @@ def test_keyword_of_fields(keyword, field_cls):
         keyword: [n_f.get_schema(), i_f.get_schema()]
     }
 
-    field = field_cls(Var(
-        role_1=[n_f, Var(role_1=s_f), Var(role_2=i_f)],
-        role_2=[Var(role_2=i_f)],
-        roles_to_pass_down=['role_1']
-    ))
+    field = field_cls(Var({
+        'role_1': [n_f, Var({'role_1': s_f}), Var({'role_2': i_f})],
+        'role_2': [Var({'role_2': i_f})],
+    }, propagate='role_1'))
     assert field.get_schema() == {keyword: []}
     assert field.get_schema(role='role_1') == {
         keyword: [n_f.get_schema(), s_f.get_schema()]
@@ -163,20 +201,20 @@ def test_keyword_of_fields(keyword, field_cls):
 
 def test_not_field():
     s_f = StringField()
-    field = NotField(Var(role_1=s_f))
+    field = NotField(Var({'role_1': s_f}))
     assert field.get_schema() == {'not': {}}
     assert field.get_schema(role='role_1') == {'not': s_f.get_schema()}
 
 
 def test_document_field():
     class B(Document):
-        name = Var(
-            response=StringField(required=True),
-            request=StringField()
-        )
+        name = Var({
+            'response': StringField(required=True),
+            'request': StringField(),
+        })
 
     class A(Document):
-        id = Var(response=StringField(required=True))
+        id = Var({'response': StringField(required=True)})
         b = DocumentField(B)
 
     field = DocumentField(A)
@@ -184,7 +222,7 @@ def test_document_field():
     # test iter_fields method
     assert list(field.iter_fields()) == [A.b]
     assert (sorted(list(field.iter_fields(role='response')), key=id) ==
-            sorted([A.b, A.id.values['response']], key=id))
+            sorted([A.b, maybe_resolve(A.id, 'response')], key=id))
 
     # test walk method
     w = list(field.walk())
@@ -195,15 +233,26 @@ def test_document_field():
 
     w = list(field.walk(through_document_fields=True, role='response'))
     assert (sorted(w, key=id) ==
-            sorted([field, A.b, A.id.values['response'], B.name.values['response']], key=id))
+            sorted([
+                field,
+                A.b,
+                maybe_resolve(A.id, 'response'),
+                maybe_resolve(B.name, 'response')
+            ], key=id))
 
     w = list(field.walk(through_document_fields=True, role='request'))
-    assert sorted(w, key=id) == sorted([field, A.b, B.name.values['request']], key=id)
+    assert sorted(w, key=id) == sorted([
+        field,
+        A.b,
+        maybe_resolve(B.name, 'request')
+    ], key=id)
 
     class X(Document):
         pass
+
     class Y(Document):
         pass
+
     field = DocumentField(Var({
         'role_1': X,
         'role_2': Y
@@ -230,7 +279,7 @@ def test_basics():
         name = StringField(required=True, min_length=5)
         type = StringField(required=True, enum=['TYPE_1', 'TYPE_2'])
         created_at = DateTimeField(required=True)
-        author = Var({'response': DocumentField(User)}, roles_to_pass_down=['response'])
+        author = Var({'response': DocumentField(User)})
 
     expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
