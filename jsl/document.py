@@ -212,7 +212,7 @@ class Document(with_metaclass(DocumentMeta)):
         fields = cls._field.walk(role=role, current_document=current_document,
                                      through_document_fields=through_document_fields,
                                      visited_documents=visited_documents)
-        fields.next()  # we don't want to yield _field itself
+        next(fields)  # we don't want to yield _field itself
         for field in fields:
             yield field
 
