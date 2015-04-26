@@ -5,7 +5,7 @@ from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentFie
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
 from jsl._compat import iteritems
-from jsl.roles import Var, Scope, not_, all_but, FuncMatcher, all_
+from jsl.roles import Var, Scope, not_, all_but, FuncMatcher, all_, Resolution
 
 
 def sort_required_keys(schema):
@@ -25,19 +25,19 @@ def test_var():
         ('role_2', value_2),
         (not_('role_3'), value_3),
     ])
-    assert var.resolve('role_1') == value_1
-    assert var.resolve('role_2') == value_2
-    assert var.resolve('default') == value_3
+    assert var.resolve('role_1') == Resolution(value_1, 'role_1')
+    assert var.resolve('role_2') == Resolution(value_2, 'role_2')
+    assert var.resolve('default') == Resolution(value_3, 'default')
 
     var = Var([
         (not_('role_3'), value_3),
         ('role_1', value_1),
         ('role_2', value_2),
     ])
-    assert var.resolve('role_1') == value_3
-    assert var.resolve('role_2') == value_3
-    assert var.resolve('default') == value_3
-    assert var.resolve('role_3') is None
+    assert var.resolve('role_1') == Resolution(value_3, 'role_1')
+    assert var.resolve('role_2') == Resolution(value_3, 'role_2')
+    assert var.resolve('default') == Resolution(value_3, 'default')
+    assert var.resolve('role_3') == Resolution(None, 'role_3')
 
 
 DB_ROLE = 'db'
@@ -51,8 +51,8 @@ def test_helpers():
         all_but(*args): False
     }, default=True)
 
-    assert when(RESPONSE_ROLE).resolve(RESPONSE_ROLE)
-    assert not when(RESPONSE_ROLE).resolve(REQUEST_ROLE)
+    assert when(RESPONSE_ROLE).resolve(RESPONSE_ROLE).value
+    assert not when(RESPONSE_ROLE).resolve(REQUEST_ROLE).value
 
     assert FuncMatcher(lambda r: r == '123').match('123')
     assert FuncMatcher(all_()).match('123')
@@ -322,14 +322,14 @@ def test_document_field():
             sorted([
                 field,
                 A.b,
-                A.resolve_field('id', 'response'),
-                B.resolve_field('name', 'response')
+                A.resolve_field('id', 'response').value,
+                B.resolve_field('name', 'response').value,
             ], key=id))
 
     assert sorted(field.walk(through_document_fields=True, role='request'), key=id) == sorted([
         field,
         A.b,
-        B.resolve_field('name', 'request')
+        B.resolve_field('name', 'request').value,
     ], key=id)
 
 

@@ -1,4 +1,6 @@
 # coding: utf-8
+import collections
+
 from ._compat import OrderedDict, iteritems, string_types
 
 
@@ -50,11 +52,11 @@ def construct_matcher(matcher):
                          'strings and callables are supported.'.format(matcher))
 
 
+Resolution = collections.namedtuple('Resolution', ['value', 'role'])
+
+
 class Resolvable(object):
     def resolve(self, role):
-        raise NotImplementedError()
-
-    def resolve_2(self, role):
         raise NotImplementedError()
 
 
@@ -91,12 +93,13 @@ class Var(Resolvable):
         return self._propagate
 
     def resolve(self, role):
-        for matcher, value in self._values:
+        for matcher, value_ in self._values:
             if matcher.match(role):
-                return value
-        return self.default
+                value = value_
+                break
+        else:
+            value = self.default
 
-    def resolve_2(self, role):
         if self._propagate:
             if self._propagate.match(role):
                 new_role = role
@@ -107,7 +110,7 @@ class Var(Resolvable):
                 new_role = DEFAULT_ROLE
             else:
                 new_role = role
-        return self.resolve(role), new_role
+        return Resolution(value, new_role)
 
 
 class Scope(object):

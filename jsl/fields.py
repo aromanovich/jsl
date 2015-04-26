@@ -3,7 +3,7 @@ import re
 import sre_constants
 
 from . import registry
-from .roles import DEFAULT_ROLE, Resolvable, Var
+from .roles import DEFAULT_ROLE, Resolvable, Var, Resolution
 from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 
@@ -44,10 +44,7 @@ class BaseField(Resolvable):
 
     # Resolvable methods:
     def resolve(self, role):
-        return self
-
-    def resolve_2(self, role):
-        return self, role
+        return Resolution(self, role)
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, current_document=None,
                                    scope=ResolutionScope(),
@@ -97,13 +94,7 @@ class BaseField(Resolvable):
         value = getattr(self, attr)
         if isinstance(value, Var):
             return value.resolve(role)
-        return value
-
-    def resolve_attr_2(self, attr, role=DEFAULT_ROLE):
-        value = getattr(self, attr)
-        if isinstance(value, Var):
-            return value.resolve_2(role)
-        return value, role
+        return Resolution(value, role)
 
 
 class BaseSchemaField(BaseField):
@@ -135,13 +126,13 @@ class BaseSchemaField(BaseField):
         super(BaseSchemaField, self).__init__(**kwargs)
 
     def get_enum(self, role=DEFAULT_ROLE):
-        enum = self.resolve_attr('_enum', role)
+        enum = self.resolve_attr('_enum', role).value
         if callable(enum):
             enum = enum()
         return enum
 
     def get_default(self, role=DEFAULT_ROLE):
-        default = self.resolve_attr('_default', role)
+        default = self.resolve_attr('_default', role).value
         if callable(default):
             default = default()
         return default
@@ -154,10 +145,10 @@ class BaseSchemaField(BaseField):
     def _update_schema_with_common_fields(self, schema, id='', role=DEFAULT_ROLE):
         if id:
             schema['id'] = id
-        title = self.resolve_attr('title', role)
+        title = self.resolve_attr('title', role).value
         if title is not None:
             schema['title'] = title
-        description = self.resolve_attr('description', role)
+        description = self.resolve_attr('description', role).value
         if description is not None:
             schema['description'] = description
         enum = self.get_enum(role=role)
@@ -176,7 +167,7 @@ class BaseSchemaField(BaseField):
         """Yields nested fields in a DFS order."""
         yield self
         for field in self.iter_fields(role=role):
-            field, field_role = field.resolve_2(role)
+            field, field_role = field.resolve(role)
             if field is None:
                 continue
             for field_ in field.walk(role=field_role, current_document=current_document,
@@ -229,16 +220,16 @@ class StringField(BaseSchemaField):
         schema = (OrderedDict if ordered else dict)(type='string')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
 
-        pattern = self.resolve_attr('pattern', role)
+        pattern = self.resolve_attr('pattern', role).value
         if pattern:
             schema['pattern'] = pattern
-        min_length = self.resolve_attr('min_length', role)
+        min_length = self.resolve_attr('min_length', role).value
         if min_length is not None:
             schema['minLength'] = min_length
-        max_length = self.resolve_attr('max_length', role)
+        max_length = self.resolve_attr('max_length', role).value
         if max_length is not None:
             schema['maxLength'] = max_length
-        format = self.resolve_attr('format', role)
+        format = self.resolve_attr('format', role).value
         if format is not None:
             schema['format'] = format
         return {}, schema
@@ -299,19 +290,19 @@ class NumberField(BaseSchemaField):
         id, scope = scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type=self._NUMBER_TYPE)
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-        multiple_of = self.resolve_attr('multiple_of', role)
+        multiple_of = self.resolve_attr('multiple_of', role).value
         if multiple_of is not None:
             schema['multipleOf'] = multiple_of
-        minimum = self.resolve_attr('minimum', role)
+        minimum = self.resolve_attr('minimum', role).value
         if minimum is not None:
             schema['minimum'] = minimum
-        exclusive_minimum = self.resolve_attr('exclusive_minimum', role)
+        exclusive_minimum = self.resolve_attr('exclusive_minimum', role).value
         if exclusive_minimum:
             schema['exclusiveMinumum'] = exclusive_minimum
-        maximum = self.resolve_attr('maximum', role)
+        maximum = self.resolve_attr('maximum', role).value
         if maximum is not None:
             schema['maximum'] = maximum
-        exclusive_maximum = self.resolve_attr('exclusive_maximum', role)
+        exclusive_maximum = self.resolve_attr('exclusive_maximum', role).value
         if exclusive_maximum:
             schema['exclusiveMaximum'] = exclusive_maximum
         return {}, schema
@@ -363,12 +354,12 @@ class ArrayField(BaseSchemaField):
         nested_definitions = {}
         schema = (OrderedDict if ordered else dict)(type='array')
 
-        items, items_role = self.resolve_attr_2('items', role)
+        items, items_role = self.resolve_attr('items', role)
         if items is not None:
             if isinstance(items, (list, tuple)):
                 nested_schema = []
                 for item in items:
-                    item, item_role = item.resolve_2(items_role)
+                    item, item_role = item.resolve(items_role)
                     item_definitions, item_schema = item.get_definitions_and_schema(
                         role=item_role, current_document=current_document,
                         scope=scope, ordered=ordered, ref_documents=ref_documents)
@@ -381,7 +372,7 @@ class ArrayField(BaseSchemaField):
             schema = self._update_schema_with_common_fields(schema, id=id, role=role)
             schema['items'] = nested_schema
 
-        additional_items, additional_items_role = self.resolve_attr_2('additional_items', role)
+        additional_items, additional_items_role = self.resolve_attr('additional_items', role)
         if additional_items is not None:
             if isinstance(additional_items, bool):
                 schema['additionalItems'] = additional_items
@@ -392,27 +383,26 @@ class ArrayField(BaseSchemaField):
                 schema['additionalItems'] = items_schema
                 nested_definitions.update(items_definitions)
 
-        min_items = self.resolve_attr('min_items', role)
+        min_items = self.resolve_attr('min_items', role).value
         if min_items is not None:
             schema['minItems'] = min_items
-        max_items = self.resolve_attr('max_items', role)
+        max_items = self.resolve_attr('max_items', role).value
         if max_items is not None:
             schema['maxItems'] = max_items
-        unique_items = self.resolve_attr('unique_items', role)
+        unique_items = self.resolve_attr('unique_items', role).value
         if unique_items:
             schema['uniqueItems'] = True
         return nested_definitions, schema
 
     def iter_fields(self, role=DEFAULT_ROLE):
-        items, items_role = self.resolve_attr_2('items', role)
+        items, items_role = self.resolve_attr('items', role)
         if items is not None:
             if isinstance(items, (list, tuple)):
                 for item in items:
-                    item = item.resolve(items_role)
-                    yield item
+                    yield item.resolve(items_role).value
             else:
-                yield items.resolve(items_role)
-        additional_items = self.resolve_attr('additional_items', role)
+                yield items.resolve(items_role).value
+        additional_items = self.resolve_attr('additional_items', role).value
         if isinstance(additional_items, BaseField):
             yield additional_items
 
@@ -454,13 +444,13 @@ class DictField(BaseSchemaField):
         schema = OrderedDict() if ordered else {}
         required = []
         for prop, field in iteritems(properties):
-            field, field_role = field.resolve_2(role)
+            field, field_role = field.resolve(role)
             if field is None:
                 continue
             field_definitions, field_schema = field.get_definitions_and_schema(
                 role=field_role, current_document=current_document,
                 scope=scope, ordered=ordered, ref_documents=ref_documents)
-            if field.resolve_attr('required', field_role):
+            if field.resolve_attr('required', field_role).value:
                 required.append(prop)
             schema[prop] = field_schema
             nested_definitions.update(field_definitions)
@@ -473,7 +463,7 @@ class DictField(BaseSchemaField):
         id, scope = scope.alter(self.id)
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
 
-        properties, properties_role = self.resolve_attr_2('properties', role)
+        properties, properties_role = self.resolve_attr('properties', role)
         if properties is not None:
             properties_definitions, properties_required, properties_schema = self._process_properties(
                 properties, scope, ordered=ordered, ref_documents=ref_documents,
@@ -483,7 +473,7 @@ class DictField(BaseSchemaField):
                 schema['required'] = properties_required
             nested_definitions.update(properties_definitions)
 
-        pattern_properties, pattern_properties_role = self.resolve_attr_2('pattern_properties', role)
+        pattern_properties, pattern_properties_role = self.resolve_attr('pattern_properties', role)
         if pattern_properties is not None:
             for key in iterkeys(pattern_properties):
                 _validate_regex(key)
@@ -493,7 +483,7 @@ class DictField(BaseSchemaField):
             schema['patternProperties'] = properties_schema
             nested_definitions.update(properties_definitions)
 
-        additional_properties, additional_properties_role = self.resolve_attr_2('additional_properties', role)
+        additional_properties, additional_properties_role = self.resolve_attr('additional_properties', role)
         if additional_properties is not None:
             if isinstance(additional_properties, bool):
                 schema['additionalProperties'] = additional_properties
@@ -504,29 +494,29 @@ class DictField(BaseSchemaField):
                 schema['additionalProperties'] = properties_schema
                 nested_definitions.update(properties_definitions)
 
-        min_properties = self.resolve_attr('min_properties', role)
+        min_properties = self.resolve_attr('min_properties', role).value
         if min_properties is not None:
             schema['minProperties'] = min_properties
-        max_properties = self.resolve_attr('max_properties', role)
+        max_properties = self.resolve_attr('max_properties', role).value
         if max_properties is not None:
             schema['maxProperties'] = max_properties
 
         return nested_definitions, schema
 
     def iter_fields(self, role=DEFAULT_ROLE):
-        properties, properties_role = self.resolve_attr_2('properties', role)
+        properties, properties_role = self.resolve_attr('properties', role)
         if properties is not None:
             for field in itervalues(properties):
-                field = field.resolve(properties_role)
+                field = field.resolve(properties_role).value
                 if field is not None:
                     yield field
-        pattern_properties, pattern_properties_role = self.resolve_attr_2('pattern_properties', role)
+        pattern_properties, pattern_properties_role = self.resolve_attr('pattern_properties', role)
         if pattern_properties is not None:
             for field in itervalues(pattern_properties):
-                field = field.resolve(pattern_properties_role)
+                field = field.resolve(pattern_properties_role).value
                 if field is not None:
                     yield field
-        additional_properties = self.resolve_attr('additional_properties', role)
+        additional_properties = self.resolve_attr('additional_properties', role).value
         if isinstance(additional_properties, BaseField):
             yield additional_properties
 
@@ -543,10 +533,10 @@ class BaseOfField(BaseSchemaField):
         id, scope = scope.alter(self.id)
         nested_definitions = {}
         one_of = []
-        fields, fields_role = self.resolve_attr_2('fields', role)
+        fields, fields_role = self.resolve_attr('fields', role)
         if fields is not None:
             for field in fields:
-                field, field_role = field.resolve_2(fields_role)
+                field, field_role = field.resolve(fields_role)
                 if isinstance(field, BaseField):
                     field_definitions, field_schema = field.get_definitions_and_schema(
                         role=field_role, current_document=current_document,
@@ -559,9 +549,9 @@ class BaseOfField(BaseSchemaField):
         return nested_definitions, schema
 
     def iter_fields(self, role=DEFAULT_ROLE):
-        fields, fields_role = self.resolve_attr_2('fields', role)
+        fields, fields_role = self.resolve_attr('fields', role)
         for field in fields:
-            field = field.resolve(fields_role)
+            field = field.resolve(fields_role).value
             if isinstance(field, BaseField):
                 yield field
 
@@ -603,7 +593,7 @@ class NotField(BaseSchemaField):
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, current_document=None,
                                    scope=ResolutionScope(), ordered=False, ref_documents=None):
         id, scope = scope.alter(self.id)
-        field, field_role = self.resolve_attr_2('field', role)
+        field, field_role = self.resolve_attr('field', role)
         if isinstance(field, BaseField):
             field_definitions, field_schema = field.get_definitions_and_schema(
                 role=field_role, current_document=current_document,
