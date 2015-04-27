@@ -235,7 +235,7 @@ class Document(with_metaclass(DocumentMeta)):
         """
         definitions, schema = cls.get_definitions_and_schema(
             role=role, ordered=ordered,
-            scope=ResolutionScope(base=cls._options.id, current=cls._options.id)
+            res_scope=ResolutionScope(base=cls._options.id, current=cls._options.id)
         )
         rv = OrderedDict() if ordered else {}
         if cls._options.id:
@@ -248,7 +248,7 @@ class Document(with_metaclass(DocumentMeta)):
         return rv
 
     @classmethod
-    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 
@@ -256,12 +256,13 @@ class Document(with_metaclass(DocumentMeta)):
         containing definitions that are referenced from the schema.
 
         :arg ordered:
-            If True, the resulting schema is an OrderedDict and its properties are ordered
-            in a sensible way, which makes it more readable.
+            If True, the resulting schema is an OrderedDict in which fields are
+            listed in the order they are added to the class. Schema properties are
+            also ordered in a sensible way, making the schema more human-readable.
         :type ordered: bool
-        :arg scope:
+        :arg res_scope:
             Current resolution scope.
-        :type scope: :class:`.scope.ResolutionScope`
+        :type res_scope: :class:`.scope.ResolutionScope`
         :arg ref_documents:
             If subclass of :class:`Document` is in this set, all :class:`DocumentField` s
             pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
@@ -274,15 +275,15 @@ class Document(with_metaclass(DocumentMeta)):
         if is_recursive:
             ref_documents = set(ref_documents) if ref_documents else set()
             ref_documents.add(cls)
-            scope = scope.replace(output=scope.base)
+            res_scope = res_scope.replace(output=res_scope.base)
 
         definitions, schema = cls._field.get_definitions_and_schema(
-            role=role, scope=scope, ordered=ordered, ref_documents=ref_documents)
+            role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
             definition_id = cls.get_definition_id()
             definitions[definition_id] = schema
-            schema = scope.create_ref(definition_id)
+            schema = res_scope.create_ref(definition_id)
 
         return definitions, schema
 

@@ -44,6 +44,7 @@ class BaseField(Resolvable):
         self.required = required
 
     # Resolvable methods
+
     def resolve(self, role):
         return Resolution(self, role)
 
@@ -52,7 +53,7 @@ class BaseField(Resolvable):
 
     # / Resolvable methods
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):  # pragma: no cover
         """Returns a tuple of two elements.
 
@@ -67,9 +68,9 @@ class BaseField(Resolvable):
             If True, the resulting schema is an OrderedDict and its properties are ordered
             in a sensible way, which makes it more readable.
         :type ordered: bool
-        :arg scope:
+        :arg res_scope:
             Current resolution scope.
-        :type scope: :class:`.scope.ResolutionScope`
+        :type res_scope: :class:`.scope.ResolutionScope`
         :arg ref_documents:
             If subclass of :class:`Document` is in this set, all :class:`DocumentField` s
             pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
@@ -142,7 +143,7 @@ class BaseSchemaField(BaseField):
             default = default()
         return default
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):  # pragma: no cover
         raise NotImplementedError()
 
@@ -194,9 +195,9 @@ class BaseSchemaField(BaseField):
 class BooleanField(BaseSchemaField):
     """A boolean field."""
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='boolean')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
         return {}, schema
@@ -229,9 +230,9 @@ class StringField(BaseSchemaField):
         self.min_length = min_length
         super(StringField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='string')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
 
@@ -300,9 +301,9 @@ class NumberField(BaseSchemaField):
         self.exclusive_maximum = exclusive_maximum
         super(NumberField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type=self._NUMBER_TYPE)
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
         multiple_of = self.resolve_attr('multiple_of', role).value
@@ -363,9 +364,9 @@ class ArrayField(BaseSchemaField):
         self.additional_items = additional_items
         super(ArrayField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         nested_definitions = {}
         schema = (OrderedDict if ordered else dict)(type='array')
 
@@ -377,13 +378,13 @@ class ArrayField(BaseSchemaField):
                     item, item_role = item.resolve(items_role)
                     item_definitions, item_schema = item.get_definitions_and_schema(
                         role=item_role,
-                        scope=scope, ordered=ordered, ref_documents=ref_documents)
+                        res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
                     nested_definitions.update(item_definitions)
                     nested_schema.append(item_schema)
             else:
                 nested_definitions, nested_schema = items.get_definitions_and_schema(
                     role=items_role,
-                    scope=scope, ordered=ordered, ref_documents=ref_documents)
+                    res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
             schema = self._update_schema_with_common_fields(schema, id=id, role=role)
             schema['items'] = nested_schema
 
@@ -394,7 +395,7 @@ class ArrayField(BaseSchemaField):
             else:
                 items_definitions, items_schema = additional_items.get_definitions_and_schema(
                     role=additional_items_role,
-                    scope=scope, ordered=ordered, ref_documents=ref_documents)
+                    res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
                 schema['additionalItems'] = items_schema
                 nested_definitions.update(items_definitions)
 
@@ -469,8 +470,8 @@ class DictField(BaseSchemaField):
         self.max_properties = max_properties
         super(DictField, self).__init__(**kwargs)
 
-    def _process_properties(self, properties, scope, ordered=False, ref_documents=None,
-                            role=DEFAULT_ROLE, current_document=None):
+    def _process_properties(self, properties, res_scope, ordered=False,
+                            ref_documents=None, role=DEFAULT_ROLE):
         nested_definitions = {}
         schema = OrderedDict() if ordered else {}
         required = []
@@ -479,26 +480,25 @@ class DictField(BaseSchemaField):
             if field is None:
                 continue
             field_definitions, field_schema = field.get_definitions_and_schema(
-                role=field_role,
-                scope=scope, ordered=ordered, ref_documents=ref_documents)
+                role=field_role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
             if field.resolve_attr('required', field_role).value:
                 required.append(prop)
             schema[prop] = field_schema
             nested_definitions.update(field_definitions)
         return nested_definitions, required, schema
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
         nested_definitions = {}
         schema = (OrderedDict if ordered else dict)(type='object')
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
 
         properties, properties_role = self.resolve_attr('properties', role)
         if properties is not None:
-            properties_definitions, properties_required, properties_schema = self._process_properties(
-                properties, scope, ordered=ordered, ref_documents=ref_documents,
-                role=properties_role)
+            properties_definitions, properties_required, properties_schema = \
+                self._process_properties(properties, res_scope, ordered=ordered,
+                                         ref_documents=ref_documents, role=properties_role)
             schema['properties'] = properties_schema
             if properties_required:
                 schema['required'] = properties_required
@@ -509,19 +509,21 @@ class DictField(BaseSchemaField):
             for key in iterkeys(pattern_properties):
                 _validate_regex(key)
             properties_definitions, _, properties_schema = self._process_properties(
-                pattern_properties, scope, ordered=ordered, ref_documents=ref_documents,
+                pattern_properties, res_scope, ordered=ordered, ref_documents=ref_documents,
                 role=pattern_properties_role)
             schema['patternProperties'] = properties_schema
             nested_definitions.update(properties_definitions)
 
-        additional_properties, additional_properties_role = self.resolve_attr('additional_properties', role)
+        additional_properties, additional_properties_role = \
+            self.resolve_attr('additional_properties', role)
         if additional_properties is not None:
             if isinstance(additional_properties, bool):
                 schema['additionalProperties'] = additional_properties
             else:
-                properties_definitions, properties_schema = additional_properties.get_definitions_and_schema(
-                    role=additional_properties_role,
-                    scope=scope, ordered=ordered, ref_documents=ref_documents)
+                properties_definitions, properties_schema = \
+                    additional_properties.get_definitions_and_schema(
+                        role=additional_properties_role,
+                        res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
                 schema['additionalProperties'] = properties_schema
                 nested_definitions.update(properties_definitions)
 
@@ -577,9 +579,9 @@ class BaseOfField(BaseSchemaField):
         self.fields = fields
         super(BaseOfField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         nested_definitions = {}
         one_of = []
         fields, fields_role = self.resolve_attr('fields', role)
@@ -588,8 +590,8 @@ class BaseOfField(BaseSchemaField):
                 field, field_role = field.resolve(fields_role)
                 if isinstance(field, BaseField):
                     field_definitions, field_schema = field.get_definitions_and_schema(
-                        role=field_role,
-                        scope=scope, ordered=ordered, ref_documents=ref_documents)
+                        role=field_role, res_scope=res_scope,
+                        ordered=ordered, ref_documents=ref_documents)
                     nested_definitions.update(field_definitions)
                     one_of.append(field_schema)
         schema = OrderedDict() if ordered else {}
@@ -659,14 +661,14 @@ class NotField(BaseSchemaField):
         if isinstance(field, BaseField):
             yield field
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
-        id, scope = scope.alter(self.id)
+        id, res_scope = res_scope.alter(self.id)
         field, field_role = self.resolve_attr('field', role)
         if isinstance(field, BaseField):
             field_definitions, field_schema = field.get_definitions_and_schema(
-                role=field_role,
-                scope=scope, ordered=ordered, ref_documents=ref_documents)
+                role=field_role, res_scope=res_scope,
+                ordered=ordered, ref_documents=ref_documents)
         else:
             field_definitions = {}
             field_schema = {}
@@ -730,12 +732,12 @@ class DocumentField(BaseField):
                         visited_documents=visited_documents):
                     yield field
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
         document_cls = self.document_cls
         definition_id = document_cls.get_definition_id()
         if ref_documents and document_cls in ref_documents:
-            return {}, scope.create_ref(definition_id)
+            return {}, res_scope.create_ref(definition_id)
         else:
             new_role = DEFAULT_ROLE
             if self.owner_cls:
@@ -745,10 +747,10 @@ class DocumentField(BaseField):
                 new_role = role
             document_definitions, document_schema = document_cls.get_definitions_and_schema(
                 role=new_role,
-                scope=scope, ordered=ordered, ref_documents=ref_documents)
+                res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
             if self.as_ref:
                 document_definitions[definition_id] = document_schema
-                return document_definitions, scope.create_ref(definition_id)
+                return document_definitions, res_scope.create_ref(definition_id)
             else:
                 return document_definitions, document_schema
 
