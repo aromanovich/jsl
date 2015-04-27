@@ -4,8 +4,8 @@ import pytest
 from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentField, IntField,
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
+from jsl.roles import Var, Scope, not_, all_but, Resolution
 from jsl._compat import iteritems
-from jsl.roles import Var, Scope, not_, all_but, FuncMatcher, all_, Resolution
 
 
 def sort_required_keys(schema):
@@ -53,10 +53,6 @@ def test_helpers():
 
     assert when(RESPONSE_ROLE).resolve(RESPONSE_ROLE).value
     assert not when(RESPONSE_ROLE).resolve(REQUEST_ROLE).value
-
-    assert FuncMatcher(lambda r: r == '123').match('123')
-    assert FuncMatcher(all_()).match('123')
-    assert not FuncMatcher(all_but('123')).match('123')
 
 
 def test_scopes_basics():

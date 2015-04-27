@@ -635,7 +635,7 @@ class DocumentField(BaseField):
             document_cls = self.document_cls
             new_role = DEFAULT_ROLE
             if current_document:
-                if current_document._options.roles_to_propagate.match(role):
+                if current_document._options.roles_to_propagate(role):
                     new_role = role
             else:
                 new_role = role
@@ -656,7 +656,7 @@ class DocumentField(BaseField):
         else:
             new_role = DEFAULT_ROLE
             if current_document:
-                if current_document._options.roles_to_propagate.match(role):
+                if current_document._options.roles_to_propagate(role):
                     new_role = role
             else:
                 new_role = role
