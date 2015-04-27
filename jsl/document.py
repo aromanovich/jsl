@@ -31,6 +31,7 @@ class Options(object):
         An URI of the JSON Schema meta-schema.
     :type schema_uri: str
     """
+
     def __init__(self, additional_properties=False, pattern_properties=None,
                  min_properties=None, max_properties=None,
                  title=None, description=None,
@@ -181,6 +182,7 @@ class Document(with_metaclass(DocumentMeta)):
                 description = 'A person who uses a computer or network service.'
             login = StringField(required=True)
     """
+
     @classmethod
     def is_recursive(cls, role=DEFAULT_ROLE):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
@@ -206,11 +208,9 @@ class Document(with_metaclass(DocumentMeta)):
         return cls._field.iter_fields(role=role)
 
     @classmethod
-    def walk(cls, role=DEFAULT_ROLE, current_document=None,
-             through_document_fields=False, visited_documents=frozenset()):
-        fields = cls._field.walk(role=role, current_document=current_document,
-                                     through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents)
+    def walk(cls, role=DEFAULT_ROLE, through_document_fields=False, visited_documents=frozenset()):
+        fields = cls._field.walk(role=role, through_document_fields=through_document_fields,
+                                 visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
         return fields
 
@@ -248,8 +248,7 @@ class Document(with_metaclass(DocumentMeta)):
         return rv
 
     @classmethod
-    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, current_document=None,
-                                   scope=ResolutionScope(),
+    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, scope=ResolutionScope(),
                                    ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 
@@ -278,8 +277,7 @@ class Document(with_metaclass(DocumentMeta)):
             scope = scope.replace(output=scope.base)
 
         definitions, schema = cls._field.get_definitions_and_schema(
-            role=role, current_document=cls, scope=scope,
-            ordered=ordered, ref_documents=ref_documents)
+            role=role, scope=scope, ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
             definition_id = cls.get_definition_id()
