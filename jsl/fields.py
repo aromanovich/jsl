@@ -3,6 +3,7 @@ import re
 import sre_constants
 
 from . import registry
+import itertools
 from .roles import DEFAULT_ROLE, Resolvable, Var, Resolution
 from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
@@ -42,9 +43,13 @@ class BaseField(Resolvable):
     def __init__(self, required=False):
         self.required = required
 
-    # Resolvable methods:
+    # Resolvable methods
     def resolve(self, role):
         return Resolution(self, role)
+
+    def iter_values(self):
+        yield self
+    # / Resolvable methods
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, current_document=None,
                                    scope=ResolutionScope(),
@@ -158,6 +163,17 @@ class BaseSchemaField(BaseField):
         if default is not None:
             schema['default'] = default
         return schema
+
+    def iter_all_fields(self):
+        return iter([])
+
+    def walk_all(self, through_document_fields=False, visited_documents=frozenset()):
+        """Yields nested fields in a DFS order."""
+        yield self
+        for field in self.iter_all_fields():
+            for field_ in field.walk_all(through_document_fields=through_document_fields,
+                                         visited_documents=visited_documents):
+                yield field_
 
     def iter_fields(self, role=DEFAULT_ROLE):
         return iter([])
@@ -339,8 +355,8 @@ class ArrayField(BaseSchemaField):
     :type additional_items: bool or :class:`BaseField` or :class:`Var`
     """
 
-    def __init__(self, items, min_items=None, max_items=None, unique_items=False,
-                 additional_items=None, **kwargs):
+    def __init__(self, items=None, additional_items=None,
+                 min_items=None, max_items=None, unique_items=False, **kwargs):
         self.items = items
         self.min_items = min_items
         self.max_items = max_items
@@ -393,6 +409,22 @@ class ArrayField(BaseSchemaField):
         if unique_items:
             schema['uniqueItems'] = True
         return nested_definitions, schema
+
+    def iter_all_fields(self):
+        rv = []
+        if isinstance(self.items, (list, tuple)):
+            for item in self.items:
+                rv.append(item.iter_values())
+        elif isinstance(self.items, Resolvable):
+            for items_value in self.items.iter_values():
+                if isinstance(items_value, (list, tuple)):
+                    for item in items_value:
+                        rv.append(item.iter_values())
+                else:
+                    rv.append(items_value.iter_values())
+        if isinstance(self.additional_items, Resolvable):
+            rv.append(self.additional_items.iter_values())
+        return itertools.chain.from_iterable(rv)
 
     def iter_fields(self, role=DEFAULT_ROLE):
         items, items_role = self.resolve_attr('items', role)
@@ -503,6 +535,24 @@ class DictField(BaseSchemaField):
 
         return nested_definitions, schema
 
+    def iter_all_fields(self):
+        def _extract_resolvables(dict_or_resolvable):
+            rv = []
+            possible_dicts = []
+            if isinstance(dict_or_resolvable, Resolvable):
+                possible_dicts = dict_or_resolvable.iter_values()
+            elif isinstance(dict_or_resolvable, dict):
+                possible_dicts = [dict_or_resolvable]
+            for possible_dict in possible_dicts:
+                rv.extend(v for v in itervalues(possible_dict) if v is not None)
+            return rv
+
+        resolvables = _extract_resolvables(self.properties)
+        resolvables.extend(_extract_resolvables(self.pattern_properties))
+        if isinstance(self.additional_properties, Resolvable):
+            resolvables.append(self.additional_properties)
+        return itertools.chain.from_iterable(r.iter_values() for r in resolvables)
+
     def iter_fields(self, role=DEFAULT_ROLE):
         properties, properties_role = self.resolve_attr('properties', role)
         if properties is not None:
@@ -548,6 +598,18 @@ class BaseOfField(BaseSchemaField):
         schema = self._update_schema_with_common_fields(schema, id=id)
         return nested_definitions, schema
 
+    def iter_all_fields(self):
+        resolvables = []
+        if isinstance(self.fields, (list, tuple)):
+            resolvables.extend(self.fields)
+        if isinstance(self.fields, Resolvable):
+            for fields in self.fields.iter_values():
+                if isinstance(fields, (list, tuple)):
+                    resolvables.extend(fields)
+                elif isinstance(fields, Resolvable):
+                    resolvables.append(fields)
+        return itertools.chain.from_iterable(r.iter_values() for r in resolvables)
+
     def iter_fields(self, role=DEFAULT_ROLE):
         fields, fields_role = self.resolve_attr('fields', role)
         for field in fields:
@@ -590,6 +652,14 @@ class NotField(BaseSchemaField):
         self.field = field
         super(NotField, self).__init__(**kwargs)
 
+    def iter_all_fields(self):
+        return self.field.iter_values()
+
+    def iter_fields(self, role=DEFAULT_ROLE):
+        field, field_role = self.resolve_attr('field', role)
+        if isinstance(field, BaseField):
+            yield field
+
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, current_document=None,
                                    scope=ResolutionScope(), ordered=False, ref_documents=None):
         id, scope = scope.alter(self.id)
@@ -627,6 +697,20 @@ class DocumentField(BaseField):
         self.owner_cls = None
         self.as_ref = as_ref
         super(DocumentField, self).__init__(**kwargs)
+
+    def iter_all_fields(self):
+        return self.document_cls.iter_all_fields()
+
+    def walk_all(self, through_document_fields=False, visited_documents=frozenset()):
+        yield self
+        if through_document_fields:
+            document_cls = self.document_cls
+            if document_cls not in visited_documents:
+                visited_documents = visited_documents | set([document_cls])
+                for field in document_cls.walk_all(
+                        through_document_fields=through_document_fields,
+                        visited_documents=visited_documents):
+                    yield field
 
     def walk(self, role=DEFAULT_ROLE, current_document=None,
              through_document_fields=False, visited_documents=frozenset()):

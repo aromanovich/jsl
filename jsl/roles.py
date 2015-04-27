@@ -46,6 +46,12 @@ class Resolvable(object):
         """
         raise NotImplementedError()
 
+    def iter_values(self):
+        """
+        Iterates all possible values except None ones.
+        """
+        raise NotImplementedError()
+
 
 class Var(Resolvable):
     """
@@ -87,6 +93,9 @@ class Var(Resolvable):
     @property
     def propagate(self):
         return self._propagate
+
+    def iter_values(self):
+        return (v for _, v in self._values if v is not None)
 
     def resolve(self, role):
         """

@@ -9,7 +9,7 @@ from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareab
 
 
 def _set_owner_to_document_fields(cls):
-    for field_ in cls.walk(through_document_fields=False, visited_documents=set([cls])):
+    for field_ in cls.walk_all(through_document_fields=False, visited_documents=set([cls])):
         if isinstance(field_, DocumentField):
             field_.set_owner(cls)
     return
@@ -184,7 +184,7 @@ class Document(with_metaclass(DocumentMeta)):
     @classmethod
     def is_recursive(cls, role=DEFAULT_ROLE):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
-        for field in cls.walk(through_document_fields=True, visited_documents=set([cls])):
+        for field in cls.walk(through_document_fields=True, role=role, visited_documents=set([cls])):
             if isinstance(field, DocumentField):
                 if field.document_cls == cls:
                     return True
@@ -203,8 +203,7 @@ class Document(with_metaclass(DocumentMeta)):
 
     @classmethod
     def iter_fields(cls, role=DEFAULT_ROLE):
-        for field in cls._field.iter_fields(role=role):
-            yield field
+        return cls._field.iter_fields(role=role)
 
     @classmethod
     def walk(cls, role=DEFAULT_ROLE, current_document=None,
@@ -213,8 +212,18 @@ class Document(with_metaclass(DocumentMeta)):
                                      through_document_fields=through_document_fields,
                                      visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
-        for field in fields:
-            yield field
+        return fields
+
+    @classmethod
+    def iter_all_fields(cls):
+        return cls._field.iter_all_fields()
+
+    @classmethod
+    def walk_all(cls, through_document_fields=False, visited_documents=frozenset()):
+        fields = cls._field.walk_all(through_document_fields=through_document_fields,
+                                     visited_documents=visited_documents)
+        next(fields)  # we don't want to yield _field itself
+        return fields
 
     @classmethod
     def get_schema(cls, role=DEFAULT_ROLE, ordered=False):

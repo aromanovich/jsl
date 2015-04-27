@@ -396,3 +396,10 @@ def test_basics():
     schema['required'].sort()
     schema['properties']['author']['required'].sort()
     assert schema == expected_schema
+
+
+def test_document():
+    class A(Document):
+        a = Var({'role_1': DocumentField('self')})
+    assert not A.is_recursive()
+    assert A.is_recursive(role='role_1')
