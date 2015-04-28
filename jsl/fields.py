@@ -237,7 +237,7 @@ class NumberField(BaseSchemaField):
         if self.minimum is not None:
             schema['minimum'] = self.minimum
         if self.exclusive_minimum:
-            schema['exclusiveMinumum'] = True
+            schema['exclusiveMinimum'] = True
         if self.maximum is not None:
             schema['maximum'] = self.maximum
         if self.exclusive_maximum:
