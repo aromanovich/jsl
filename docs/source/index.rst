@@ -201,6 +201,11 @@ Schema Fields
 Changelog
 ---------
 
+0.0.10: 2014-04-28
+~~~~~~~~~~~~~~~~~~
+
+- Fix spelling of ``exclusiveMinimum`` by Keith T. Star.
+
 0.0.9: 2014-04-10
 ~~~~~~~~~~~~~~~~~
 
