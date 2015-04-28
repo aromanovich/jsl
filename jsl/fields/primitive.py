@@ -1,6 +1,6 @@
 # coding: utf-8
 from ..roles import DEFAULT_ROLE, Var
-from ..resolutionscope import ResolutionScope
+from ..resolutionscope import EMPTY_SCOPE
 from .._compat import OrderedDict
 from .base import BaseSchemaField
 from .util import validate, validate_regex
@@ -15,7 +15,7 @@ __all__ = [
 class BooleanField(BaseSchemaField):
     """A boolean field."""
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='boolean')
@@ -50,7 +50,7 @@ class StringField(BaseSchemaField):
         self.min_length = min_length
         super(StringField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='string')
@@ -113,7 +113,7 @@ class NumberField(BaseSchemaField):
     _NUMBER_TYPE = 'number'
 
     def __init__(self, multiple_of=None, minimum=None, maximum=None,
-                 exclusive_minimum=False, exclusive_maximum=False, **kwargs):
+                 exclusive_minimum=None, exclusive_maximum=None, **kwargs):
         self.multiple_of = multiple_of
         self.minimum = minimum
         self.exclusive_minimum = exclusive_minimum
@@ -121,7 +121,7 @@ class NumberField(BaseSchemaField):
         self.exclusive_maximum = exclusive_maximum
         super(NumberField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type=self._NUMBER_TYPE)
@@ -133,13 +133,13 @@ class NumberField(BaseSchemaField):
         if minimum is not None:
             schema['minimum'] = minimum
         exclusive_minimum = self.resolve_attr('exclusive_minimum', role).value
-        if exclusive_minimum:
+        if exclusive_minimum is not None:
             schema['exclusiveMinimum'] = exclusive_minimum
         maximum = self.resolve_attr('maximum', role).value
         if maximum is not None:
             schema['maximum'] = maximum
         exclusive_maximum = self.resolve_attr('exclusive_maximum', role).value
-        if exclusive_maximum:
+        if exclusive_maximum is not None:
             schema['exclusiveMaximum'] = exclusive_maximum
         return {}, schema
 

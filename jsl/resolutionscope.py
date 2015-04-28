@@ -3,8 +3,8 @@ from ._compat import urljoin, urldefrag
 
 
 class ResolutionScope(object):
-    """An utility class to help with translating :class:`.fields.BaseSchemaField` s into
-    schema identifiers.
+    """An utility class to help with translating :class:`.fields.BaseSchemaField`
+    ``id`` fields into schema identifiers.
 
     :param base:
         A resolution scope of the outermost schema.
@@ -59,3 +59,6 @@ class ResolutionScope(object):
             definition_id
         )
         return {'$ref': ref}
+
+
+EMPTY_SCOPE = ResolutionScope()

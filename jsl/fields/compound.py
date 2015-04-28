@@ -3,7 +3,7 @@ import itertools
 
 from .. import registry
 from ..roles import DEFAULT_ROLE, Resolvable, Var
-from ..resolutionscope import ResolutionScope
+from ..resolutionscope import EMPTY_SCOPE
 from .._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 from .base import BaseSchemaField, BaseField
 from .util import validate_regex
@@ -44,7 +44,7 @@ class ArrayField(BaseSchemaField):
     """
 
     def __init__(self, items=None, additional_items=None,
-                 min_items=None, max_items=None, unique_items=False, **kwargs):
+                 min_items=None, max_items=None, unique_items=None, **kwargs):
         self.items = items
         self.min_items = min_items
         self.max_items = max_items
@@ -52,29 +52,30 @@ class ArrayField(BaseSchemaField):
         self.additional_items = additional_items
         super(ArrayField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
-        nested_definitions = {}
         schema = (OrderedDict if ordered else dict)(type='array')
+        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
+        nested_definitions = {}
 
         items, items_role = self.resolve_attr('items', role)
         if items is not None:
             if isinstance(items, (list, tuple)):
-                nested_schema = []
+                items_schema = []
                 for item in items:
                     item, item_role = item.resolve(items_role)
                     item_definitions, item_schema = item.get_definitions_and_schema(
                         role=item_role,
                         res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
                     nested_definitions.update(item_definitions)
-                    nested_schema.append(item_schema)
+                    items_schema.append(item_schema)
             else:
-                nested_definitions, nested_schema = items.get_definitions_and_schema(
-                    role=items_role,
-                    res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
-            schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-            schema['items'] = nested_schema
+                items_definitions, items_schema = items.get_definitions_and_schema(
+                    role=items_role, res_scope=res_scope, ordered=ordered,
+                    ref_documents=ref_documents)
+                nested_definitions.update(items_definitions)
+            schema['items'] = items_schema
 
         additional_items, additional_items_role = self.resolve_attr('additional_items', role)
         if additional_items is not None:
@@ -94,8 +95,8 @@ class ArrayField(BaseSchemaField):
         if max_items is not None:
             schema['maxItems'] = max_items
         unique_items = self.resolve_attr('unique_items', role).value
-        if unique_items:
-            schema['uniqueItems'] = True
+        if unique_items is not None:
+            schema['uniqueItems'] = unique_items
         return nested_definitions, schema
 
     def iter_all_fields(self):
@@ -177,12 +178,12 @@ class DictField(BaseSchemaField):
             nested_definitions.update(field_definitions)
         return nested_definitions, required, schema
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
-        nested_definitions = {}
-        schema = (OrderedDict if ordered else dict)(type='object')
         id, res_scope = res_scope.alter(self.id)
+        schema = (OrderedDict if ordered else dict)(type='object')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
+        nested_definitions = {}
 
         properties, properties_role = self.resolve_attr('properties', role)
         if properties is not None:
@@ -269,10 +270,13 @@ class BaseOfField(BaseSchemaField):
         self.fields = fields
         super(BaseOfField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
+        schema = OrderedDict() if ordered else {}
+        schema = self._update_schema_with_common_fields(schema, id=id)
         nested_definitions = {}
+
         one_of = []
         fields, fields_role = self.resolve_attr('fields', role)
         if fields is not None:
@@ -284,9 +288,7 @@ class BaseOfField(BaseSchemaField):
                         ordered=ordered, ref_documents=ref_documents)
                     nested_definitions.update(field_definitions)
                     one_of.append(field_schema)
-        schema = OrderedDict() if ordered else {}
         schema[self._KEYWORD] = one_of
-        schema = self._update_schema_with_common_fields(schema, id=id)
         return nested_definitions, schema
 
     def iter_all_fields(self):
@@ -351,9 +353,11 @@ class NotField(BaseSchemaField):
         if isinstance(field, BaseField):
             yield field
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
+        schema = OrderedDict() if ordered else {}
+        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
         field, field_role = self.resolve_attr('field', role)
         if isinstance(field, BaseField):
             field_definitions, field_schema = field.get_definitions_and_schema(
@@ -362,9 +366,7 @@ class NotField(BaseSchemaField):
         else:
             field_definitions = {}
             field_schema = {}
-        schema = OrderedDict() if ordered else {}
         schema['not'] = field_schema
-        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
         return field_definitions, schema
 
 
@@ -422,7 +424,7 @@ class DocumentField(BaseField):
                         visited_documents=visited_documents):
                     yield field
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         document_cls = self.document_cls
         definition_id = document_cls.get_definition_id()
@@ -461,5 +463,6 @@ class DocumentField(BaseField):
                 except KeyError:
                     if self.owner_cls is None:
                         raise ValueError('owner_cls is not set')
-                    document_cls = registry.get_document(document_cls, module=self.owner_cls.__module__)
+                    document_cls = registry.get_document(document_cls,
+                                                         module=self.owner_cls.__module__)
         return document_cls
