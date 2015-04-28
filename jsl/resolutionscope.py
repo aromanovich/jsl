@@ -1,3 +1,4 @@
+# coding: utf-8
 from ._compat import urljoin, urldefrag
 
 

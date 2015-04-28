@@ -1,5 +1,7 @@
-from jsl import (StringField, ArrayField, Var, DictField, BaseOfField,
+# coding: utf-8
+from jsl import (StringField, ArrayField, Var, DictField,
                  NotField, Document, DocumentField)
+from jsl.fields.compound import BaseOfField
 
 
 a = StringField()
@@ -17,11 +19,17 @@ def test_array_field():
     field = ArrayField(Var({
         'role_1': a,
         'role_2': b,
+        'role_none': None,
     }), additional_items=Var({
         'role_3': c,
         'role_4': d,
+        'role_1': e,
+        'role_none': None,
     }))
-    assert set(field.iter_all_fields()) == set([a, b, c, d])
+    assert set(field.iter_all_fields()) == set([a, b, c, d, e])
+    assert set(field.iter_fields('role_1')) == set([a, e])
+    assert set(field.iter_fields('role_3')) == set([c])
+    assert set(field.iter_fields('role_none')) == set([])
 
     field = ArrayField(Var({
         'role_1': (a, b),
@@ -29,8 +37,14 @@ def test_array_field():
     }), additional_items=d)
     assert set(field.iter_all_fields()) == set([a, b, c, d])
 
+    field = ArrayField((Var({'role_1': a, 'role_2': b, 'role_none': None}), c))
+    assert set(field.iter_all_fields()) == set([a, b, c])
+    assert set(field.iter_fields('role_1')) == set([a, c])
+    assert set(field.iter_fields('role_none')) == set([c])
+
     field = ArrayField(a, additional_items=b)
     assert set(field.iter_all_fields()) == set([a, b])
+    assert set(field.iter_fields('some_role')) == set([a, b])
 
     field = ArrayField()
     assert set(field.iter_all_fields()) == set([])
@@ -90,13 +104,16 @@ def test_base_of_field():
 def test_not_field():
     field = NotField(a)
     assert set(field.iter_all_fields()) == set([a])
+    assert set(field.iter_fields('some_role')) == set([a])
 
     field = NotField(Var({
-        'a': a,
-        'b': b,
-        'c': None,  # probably should raise?
+        'role_1': a,
+        'role_2': b,
+        'role_3': None,  # probably should raise?
     }))
     assert set(field.iter_all_fields()) == set([a, b])
+    assert set(field.iter_fields('role_1')) == set([a])
+    assert set(field.iter_fields('role_3')) == set([])
 
 
 def test_document_field():

@@ -1,332 +1,20 @@
 # coding: utf-8
-import re
-import sre_constants
-
-from . import registry
 import itertools
-from .roles import DEFAULT_ROLE, Resolvable, Var, Resolution
-from .resolutionscope import ResolutionScope
-from ._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 
+from .. import registry
+from ..roles import DEFAULT_ROLE, Resolvable, Var
+from ..resolutionscope import ResolutionScope
+from .._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
+from .base import BaseSchemaField, BaseField
+from .util import validate_regex
+
+
+__all__ = [
+    'ArrayField', 'DictField', 'OneOfField', 'AnyOfField', 'AllOfField',
+    'NotField', 'DocumentField', 'RECURSIVE_REFERENCE_CONSTANT'
+]
 
 RECURSIVE_REFERENCE_CONSTANT = 'self'
-
-
-def _validate_regex(regex):
-    """
-    :type regex: str
-    :raises: ValueError
-    :return:
-    """
-    try:
-        re.compile(regex)
-    except sre_constants.error as e:
-        raise ValueError('Invalid regular expression: {0}'.format(e))
-
-
-def _validate(value_or_var, validator):
-    if isinstance(value_or_var, Var):
-        for _, value in value_or_var.values:
-            validator(value)
-    else:
-        validator(value_or_var)
-
-
-class BaseField(Resolvable):
-    """A base class for fields in a JSL :class:`.document.Document`.
-    Instances of this class may be added to a document to define its properties.
-
-    :param required:
-        If the field is required, defaults to False.
-    """
-
-    def __init__(self, required=False):
-        self.required = required
-
-    # Resolvable methods
-
-    def resolve(self, role):
-        return Resolution(self, role)
-
-    def iter_values(self):
-        yield self
-
-    # / Resolvable methods
-
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
-                                   ordered=False, ref_documents=None):  # pragma: no cover
-        """Returns a tuple of two elements.
-
-        The second element is a JSON schema of the data described by this field,
-        and the first is a dictionary containing definitions that are referenced
-        from the field schema.
-
-        :arg role:
-            A role. TODO
-        :type role: string
-        :arg ordered:
-            If True, the resulting schema is an OrderedDict and its properties are ordered
-            in a sensible way, which makes it more readable.
-        :type ordered: bool
-        :arg res_scope:
-            Current resolution scope.
-        :type res_scope: :class:`.scope.ResolutionScope`
-        :arg ref_documents:
-            If subclass of :class:`Document` is in this set, all :class:`DocumentField` s
-            pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
-            Note: resulting definitions will not contain schema for this document.
-        :type ref_documents: set
-        :rtype: (dict, dict)
-        """
-        raise NotImplementedError()
-
-    def get_schema(self, ordered=False, role=DEFAULT_ROLE):
-        """Returns a JSON schema (draft v4) of the data described by this field.
-
-        :arg role:
-            A role. TODO
-        :type role: string
-        :arg ordered:
-            If True, the resulting schema is an OrderedDict and its properties are ordered
-            in a sensible way, which makes it more readable.
-        :type ordered: bool
-        """
-        definitions, schema = self.get_definitions_and_schema(ordered=ordered, role=role)
-        if definitions:
-            schema['definitions'] = definitions
-        return schema
-
-    def resolve_attr(self, attr, role=DEFAULT_ROLE):
-        value = getattr(self, attr)
-        if isinstance(value, Var):
-            return value.resolve(role)
-        return Resolution(value, role)
-
-
-class BaseSchemaField(BaseField):
-    """A base class for fields that directly map to JSON Schema validator.
-
-    :param required:
-        If the field is required, defaults to False.
-    :type required: bool or :class:`Var`
-    :param default:
-        The default value for this field. May be a callable.
-    :type default: any JSON-representable object, a callable or a :class:`Var`
-    :param enum:
-        A list of valid choices. May be a callable.
-    :type enum: list, tuple, set or :class:`Var`
-    :param title:
-        A short explanation about the purpose of the data described by this field.
-    :type title: string or :class:`Var`
-    :param description:
-        A detailed explanation about the purpose of the data described by this field.
-    :type description: string or :class:`Var`
-    """
-
-    def __init__(self, id='', default=None, enum=None, title=None, description=None, **kwargs):
-        self.id = id
-        self.title = title
-        self.description = description
-        self._enum = enum
-        self._default = default
-        super(BaseSchemaField, self).__init__(**kwargs)
-
-    def get_enum(self, role=DEFAULT_ROLE):
-        enum = self.resolve_attr('_enum', role).value
-        if callable(enum):
-            enum = enum()
-        return enum
-
-    def get_default(self, role=DEFAULT_ROLE):
-        default = self.resolve_attr('_default', role).value
-        if callable(default):
-            default = default()
-        return default
-
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
-                                   ordered=False, ref_documents=None):  # pragma: no cover
-        raise NotImplementedError()
-
-    def _update_schema_with_common_fields(self, schema, id='', role=DEFAULT_ROLE):
-        if id:
-            schema['id'] = id
-        title = self.resolve_attr('title', role).value
-        if title is not None:
-            schema['title'] = title
-        description = self.resolve_attr('description', role).value
-        if description is not None:
-            schema['description'] = description
-        enum = self.get_enum(role=role)
-        if enum:
-            schema['enum'] = list(enum)
-        default = self.get_default(role=role)
-        if default is not None:
-            schema['default'] = default
-        return schema
-
-    def iter_all_fields(self):
-        return iter([])
-
-    def walk_all(self, through_document_fields=False, visited_documents=frozenset()):
-        """Yields nested fields in a DFS order."""
-        yield self
-        for field in self.iter_all_fields():
-            for field_ in field.walk_all(through_document_fields=through_document_fields,
-                                         visited_documents=visited_documents):
-                yield field_
-
-    def iter_fields(self, role=DEFAULT_ROLE):
-        return iter([])
-
-    def walk(self, role=DEFAULT_ROLE,
-             through_document_fields=False, visited_documents=frozenset()):
-        """Yields nested fields in a DFS order."""
-        yield self
-        for field in self.iter_fields(role=role):
-            field, field_role = field.resolve(role)
-            if field is None:
-                continue
-            for field_ in field.walk(role=field_role,
-                                     through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
-                yield field_
-
-
-class BooleanField(BaseSchemaField):
-    """A boolean field."""
-
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
-                                   ordered=False, ref_documents=None):
-        id, res_scope = res_scope.alter(self.id)
-        schema = (OrderedDict if ordered else dict)(type='boolean')
-        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-        return {}, schema
-
-
-class StringField(BaseSchemaField):
-    """A string field.
-
-    :param pattern:
-        A regular expression (ECMA 262) that a string value must match.
-    :type pattern: string or :class:`Var`
-    :param format:
-        A semantic format of the string (for example, "date-time", "email", or "uri").
-    :type format: string or :class:`Var`
-    :param min_length:
-        A minimum length.
-    :type min_length: int or :class:`Var`
-    :param max_length:
-        A maximum length.
-    :type max_length: int or :class:`Var`
-    """
-    _FORMAT = None
-
-    def __init__(self, pattern=None, format=None, min_length=None, max_length=None, **kwargs):
-        if pattern is not None:
-            _validate(pattern, _validate_regex)
-        self.pattern = pattern
-        self.format = format or self._FORMAT
-        self.max_length = max_length
-        self.min_length = min_length
-        super(StringField, self).__init__(**kwargs)
-
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
-                                   ordered=False, ref_documents=None):
-        id, res_scope = res_scope.alter(self.id)
-        schema = (OrderedDict if ordered else dict)(type='string')
-        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-
-        pattern = self.resolve_attr('pattern', role).value
-        if pattern:
-            schema['pattern'] = pattern
-        min_length = self.resolve_attr('min_length', role).value
-        if min_length is not None:
-            schema['minLength'] = min_length
-        max_length = self.resolve_attr('max_length', role).value
-        if max_length is not None:
-            schema['maxLength'] = max_length
-        format = self.resolve_attr('format', role).value
-        if format is not None:
-            schema['format'] = format
-        return {}, schema
-
-
-class EmailField(StringField):
-    """An email field."""
-    _FORMAT = 'email'
-
-
-class IPv4Type(StringField):
-    """An IPv4 field."""
-    _FORMAT = 'ipv4'
-
-
-class DateTimeField(StringField):
-    """An ISO 8601 formatted date-time field."""
-    _FORMAT = 'date-time'
-
-
-class UriField(StringField):
-    """A URI field."""
-    _FORMAT = 'uri'
-
-
-class NumberField(BaseSchemaField):
-    """A number field.
-
-    :param multiple_of:
-        A value must be a multiple of this factor.
-    :type multiple_of: number or :class:`Var`
-    :param minimum:
-        A minimum allowed value.
-    :type minimum: number or :class:`Var`
-    :param exclusive_minimum:
-        Whether a value is allowed to exactly equal the minimum.
-    :type exclusive_minimum: bool or :class:`Var`
-    :param maximum:
-        A maximum allowed value.
-    :type maximum: number or :class:`Var`
-    :param exclusive_maximum:
-        Whether a value is allowed to exactly equal the maximum.
-    :type exclusive_maximum: bool or :class:`Var`
-    """
-    _NUMBER_TYPE = 'number'
-
-    def __init__(self, multiple_of=None, minimum=None, maximum=None,
-                 exclusive_minimum=False, exclusive_maximum=False, **kwargs):
-        self.multiple_of = multiple_of
-        self.minimum = minimum
-        self.exclusive_minimum = exclusive_minimum
-        self.maximum = maximum
-        self.exclusive_maximum = exclusive_maximum
-        super(NumberField, self).__init__(**kwargs)
-
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
-                                   ordered=False, ref_documents=None):
-        id, res_scope = res_scope.alter(self.id)
-        schema = (OrderedDict if ordered else dict)(type=self._NUMBER_TYPE)
-        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-        multiple_of = self.resolve_attr('multiple_of', role).value
-        if multiple_of is not None:
-            schema['multipleOf'] = multiple_of
-        minimum = self.resolve_attr('minimum', role).value
-        if minimum is not None:
-            schema['minimum'] = minimum
-        exclusive_minimum = self.resolve_attr('exclusive_minimum', role).value
-        if exclusive_minimum:
-            schema['exclusiveMinimum'] = exclusive_minimum
-        maximum = self.resolve_attr('maximum', role).value
-        if maximum is not None:
-            schema['maximum'] = maximum
-        exclusive_maximum = self.resolve_attr('exclusive_maximum', role).value
-        if exclusive_maximum:
-            schema['exclusiveMaximum'] = exclusive_maximum
-        return {}, schema
-
-
-class IntField(NumberField):
-    """An integer field."""
-    _NUMBER_TYPE = 'integer'
 
 
 class ArrayField(BaseSchemaField):
@@ -428,12 +116,14 @@ class ArrayField(BaseSchemaField):
 
     def iter_fields(self, role=DEFAULT_ROLE):
         items, items_role = self.resolve_attr('items', role)
-        if items is not None:
-            if isinstance(items, (list, tuple)):
-                for item in items:
-                    yield item.resolve(items_role).value
-            else:
-                yield items.resolve(items_role).value
+        if isinstance(items, (list, tuple)):
+            for item in items:
+                if isinstance(item, Resolvable):
+                    item_value = item.resolve(items_role).value
+                    if isinstance(item_value, BaseField):
+                        yield item_value
+        elif isinstance(items, Resolvable):
+            yield items
         additional_items = self.resolve_attr('additional_items', role).value
         if isinstance(additional_items, BaseField):
             yield additional_items
@@ -507,7 +197,7 @@ class DictField(BaseSchemaField):
         pattern_properties, pattern_properties_role = self.resolve_attr('pattern_properties', role)
         if pattern_properties is not None:
             for key in iterkeys(pattern_properties):
-                _validate_regex(key)
+                validate_regex(key)
             properties_definitions, _, properties_schema = self._process_properties(
                 pattern_properties, res_scope, ordered=ordered, ref_documents=ref_documents,
                 role=pattern_properties_role)
@@ -559,13 +249,13 @@ class DictField(BaseSchemaField):
         if properties is not None:
             for field in itervalues(properties):
                 field = field.resolve(properties_role).value
-                if field is not None:
+                if isinstance(field, BaseField):
                     yield field
         pattern_properties, pattern_properties_role = self.resolve_attr('pattern_properties', role)
         if pattern_properties is not None:
             for field in itervalues(pattern_properties):
                 field = field.resolve(pattern_properties_role).value
-                if field is not None:
+                if isinstance(field, BaseField):
                     yield field
         additional_properties = self.resolve_attr('additional_properties', role).value
         if isinstance(additional_properties, BaseField):

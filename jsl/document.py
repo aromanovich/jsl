@@ -2,8 +2,8 @@
 import inspect
 
 from . import registry
-from .fields import BaseField, DocumentField, DictField, DEFAULT_ROLE
-from .roles import Var, Scope, all_, construct_matcher
+from .fields import BaseField, DocumentField, DictField
+from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher
 from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
 

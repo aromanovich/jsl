@@ -77,7 +77,7 @@ def test_string_derived_fields():
     })
     check_field_schema(f)
 
-    f = fields.IPv4Type()
+    f = fields.IPv4Field()
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'string',
         'format': 'ipv4',
