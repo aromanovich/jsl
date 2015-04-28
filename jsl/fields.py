@@ -314,7 +314,7 @@ class NumberField(BaseSchemaField):
             schema['minimum'] = minimum
         exclusive_minimum = self.resolve_attr('exclusive_minimum', role).value
         if exclusive_minimum:
-            schema['exclusiveMinumum'] = exclusive_minimum
+            schema['exclusiveMinimum'] = exclusive_minimum
         maximum = self.resolve_attr('maximum', role).value
         if maximum is not None:
             schema['maximum'] = maximum
