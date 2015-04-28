@@ -107,7 +107,7 @@ def test_number_and_int_fields():
     f = fields.NumberField(minimum=0, maximum=10, exclusive_minimum=True, exclusive_maximum=True)
     assert f.get_definitions_and_schema() == ({}, {
         'type': 'number',
-        'exclusiveMinumum': True,
+        'exclusiveMinimum': True,
         'exclusiveMaximum': True,
         'minimum': 0,
         'maximum': 10,
