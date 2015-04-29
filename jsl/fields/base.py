@@ -36,7 +36,7 @@ class BaseField(Resolvable):
         from the field schema.
 
         :arg role:
-            A role. TODO
+            A role.
         :type role: string
         :arg ordered:
             If True, the resulting schema is an OrderedDict and its properties are ordered
@@ -58,7 +58,7 @@ class BaseField(Resolvable):
         """Returns a JSON schema (draft v4) of the data described by this field.
 
         :arg role:
-            A role. TODO
+            A role.
         :type role: string
         :arg ordered:
             If True, the resulting schema is an OrderedDict and its properties are ordered
@@ -88,7 +88,7 @@ class BaseSchemaField(BaseField):
     :type default: any JSON-representable object, a callable or a :class:`Var`
     :param enum:
         A list of valid choices. May be a callable.
-    :type enum: list, tuple, set or :class:`Var`
+    :type enum: list, tuple, set, callable or :class:`Var`
     :param title:
         A short explanation about the purpose of the data described by this field.
     :type title: string or :class:`Var`
@@ -138,27 +138,42 @@ class BaseSchemaField(BaseField):
             schema['default'] = default
         return schema
 
-    def iter_all_fields(self):
+    def iter_fields(self):
         return iter([])
 
-    def walk_all(self, through_document_fields=False, visited_documents=frozenset()):
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
         """Yields nested fields in a DFS order."""
         yield self
-        for field in self.iter_all_fields():
-            for field_ in field.walk_all(through_document_fields=through_document_fields,
+        for field in self.iter_fields():
+            for field_ in field.walk(through_document_fields=through_document_fields,
                                          visited_documents=visited_documents):
                 yield field_
 
-    def iter_fields(self, role=DEFAULT_ROLE):
+    def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
         return iter([])
 
-    def walk(self, role=DEFAULT_ROLE,
-             through_document_fields=False, visited_documents=frozenset()):
-        """Yields nested fields in a DFS order."""
+    def resolve_and_walk(self, role=DEFAULT_ROLE, through_document_fields=False,
+                         visited_documents=frozenset()):
+        """
+        Yields this and all nested fields that allowed by specified role
+        in a DFS order.
+
+        :param role:
+            A role.
+        :type role: str
+        :param through_document_fields:
+            If True, walks through all nested :class:`DocumentField` fields.
+        :type through_document_fields: bool
+        :param visited_documents:
+            Keeps track of visited :class:`Document` s. Used to avoid infinite
+            recursion when :param:`through_document_fields` is True.
+        :type visited_documents: set
+        :return: iterable of :class:`BaseField`
+        """
         yield self
-        for field in self.iter_fields(role=role):
+        for field in self.resolve_and_iter_fields(role=role):
             field, field_role = field.resolve(role)
-            for field_ in field.walk(role=field_role,
-                                     through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
+            for field_ in field.resolve_and_walk(role=field_role,
+                                                 through_document_fields=through_document_fields,
+                                                 visited_documents=visited_documents):
                 yield field_

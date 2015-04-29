@@ -9,10 +9,9 @@ from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareab
 
 
 def _set_owner_to_document_fields(cls):
-    for field_ in cls.walk_all(through_document_fields=False, visited_documents=set([cls])):
-        if isinstance(field_, DocumentField):
-            field_.set_owner(cls)
-    return
+    for field in cls.walk(through_document_fields=False, visited_documents=set([cls])):
+        if isinstance(field, DocumentField):
+            field.set_owner(cls)
 
 
 class Options(object):
@@ -160,7 +159,8 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
     @classmethod
     def create_options(cls, options):
         """
-        Wraps ``options`` into a container class (see :attr:`~.DocumentMeta.options_container`).
+        Wraps ``options`` into a container class
+        (see :attr:`~.DocumentMeta.options_container`).
 
         :param options: a dictionary of options
         :return: an instance of :attr:`~.DocumentMeta.options_container`
@@ -172,7 +172,8 @@ class Document(with_metaclass(DocumentMeta)):
     """A document. Can be thought as a kind of :class:`.fields.DictField`, which
     properties are defined by the fields added to the document class.
 
-    It can be tuned using special ``Options`` attribute (see :class:`.Options` for available settings).
+    It can be tuned using special ``Options`` attribute (see :class:`.Options`
+    for available settings).
 
     Example::
 
@@ -186,7 +187,8 @@ class Document(with_metaclass(DocumentMeta)):
     @classmethod
     def is_recursive(cls, role=DEFAULT_ROLE):
         """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
-        for field in cls.walk(through_document_fields=True, role=role, visited_documents=set([cls])):
+        for field in cls.resolve_and_walk(through_document_fields=True,
+                                          role=role, visited_documents=set([cls])):
             if isinstance(field, DocumentField):
                 if field.document_cls == cls:
                     return True
@@ -201,27 +203,30 @@ class Document(with_metaclass(DocumentMeta)):
         """Returns a unique string to be used as a key for this document
         in the "definitions" schema section.
         """
-        return cls._options.definition_id or '{0}.{1}'.format(cls.__module__, cls.__name__)
+        return (cls._options.definition_id or
+                '{0}.{1}'.format(cls.__module__, cls.__name__))
 
     @classmethod
-    def iter_fields(cls, role=DEFAULT_ROLE):
-        return cls._field.iter_fields(role=role)
+    def resolve_and_iter_fields(cls, role=DEFAULT_ROLE):
+        return cls._field.resolve_and_iter_fields(role=role)
 
     @classmethod
-    def walk(cls, role=DEFAULT_ROLE, through_document_fields=False, visited_documents=frozenset()):
-        fields = cls._field.walk(role=role, through_document_fields=through_document_fields,
-                                 visited_documents=visited_documents)
+    def resolve_and_walk(cls, role=DEFAULT_ROLE, through_document_fields=False,
+                         visited_documents=frozenset()):
+        fields = cls._field.resolve_and_walk(
+            role=role, through_document_fields=through_document_fields,
+            visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
         return fields
 
     @classmethod
-    def iter_all_fields(cls):
-        return cls._field.iter_all_fields()
+    def iter_fields(cls):
+        return cls._field.iter_fields()
 
     @classmethod
-    def walk_all(cls, through_document_fields=False, visited_documents=frozenset()):
-        fields = cls._field.walk_all(through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents)
+    def walk(cls, through_document_fields=False, visited_documents=frozenset()):
+        fields = cls._field.walk(through_document_fields=through_document_fields,
+                                 visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
         return fields
 

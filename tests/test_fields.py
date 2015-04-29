@@ -186,12 +186,12 @@ def test_array_field_walk():
     c = fields.StringField()
 
     array_field = fields.ArrayField((a, b), additional_items=c)
-    path = list(array_field.walk())
+    path = list(array_field.resolve_and_walk())
     expected_path = [array_field, a, aa, b, c]
     assert path == expected_path
 
     array_field = fields.ArrayField(a, additional_items=False)
-    path = list(array_field.walk())
+    path = list(array_field.resolve_and_walk())
     expected_path = [array_field, a, aa]
     assert path == expected_path
 
@@ -282,7 +282,7 @@ def test_dict_field_walk():
         },
         additional_properties=d
     )
-    path = list(dict_field.walk())
+    path = list(dict_field.resolve_and_walk())
     expected_path_1 = [dict_field, a, aa, b, bb, c, cc, d, dd]
     expected_path_2 = [dict_field, b, bb, a, aa, c, cc, d, dd]
     assert path == expected_path_1 or path == expected_path_2

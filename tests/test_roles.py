@@ -309,12 +309,12 @@ def test_document_field():
 
     field = DocumentField(A)
 
-    assert list(field.walk()) == [field]
+    assert list(field.resolve_and_walk()) == [field]
 
-    assert (sorted(field.walk(through_document_fields=True), key=id) ==
+    assert (sorted(field.resolve_and_walk(through_document_fields=True), key=id) ==
             sorted([field, A.b], key=id))
 
-    assert (sorted(field.walk(role='response', through_document_fields=True), key=id) ==
+    assert (sorted(field.resolve_and_walk(role='response', through_document_fields=True), key=id) ==
             sorted([
                 field,
                 A.b,
@@ -322,7 +322,7 @@ def test_document_field():
                 B.resolve_field('name', 'response').value,
             ], key=id))
 
-    assert sorted(field.walk(through_document_fields=True, role='request'), key=id) == sorted([
+    assert sorted(field.resolve_and_walk(through_document_fields=True, role='request'), key=id) == sorted([
         field,
         A.b,
         B.resolve_field('name', 'request').value,
