@@ -5,9 +5,7 @@ from jsl.document import Document
 from jsl.fields import StringField, IntField, DocumentField, DateTimeField, ArrayField, OneOfField
 from jsl._compat import OrderedDict, iterkeys
 
-
-def check_field_schema(field):
-    return jsonschema.Draft4Validator.check_schema(field.get_schema())
+from util import s
 
 
 def test_to_schema():
@@ -37,8 +35,6 @@ def test_to_schema():
     assert Resource.get_definition_id() == 'test_document.Resource'
     assert Task.get_definition_id() == 'task'
 
-    task_schema = Task.get_schema()
-    task_schema['required'].sort()
     expected_task_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'type': 'object',
@@ -54,9 +50,7 @@ def test_to_schema():
             'author': Task.author.get_schema(),
         }
     }
-    assert task_schema == expected_task_schema
-    assert task_schema['properties']['author']['additionalProperties']
-    check_field_schema(Task)
+    assert s(Task.get_schema()) == expected_task_schema
 
 
 def test_document_options():
@@ -157,9 +151,8 @@ def test_recursive_definitions_1():
     }
     schema = A.get_schema(ordered=True)
     assert isinstance(schema, OrderedDict)
-    assert schema == expected_schema
+    assert s(schema) == s(expected_schema)
     assert list(iterkeys(schema)) == ['id', '$schema', 'definitions', '$ref']
-    check_field_schema(A)
 
     # let's make sure that all the references in resulting schema
     # can be resolved
@@ -233,8 +226,7 @@ def test_recursive_definitions_2():
         '$ref': '#/definitions/test_document.A',
     }
     schema = A.get_schema()
-    assert schema == expected_schema
-    check_field_schema(A)
+    assert s(schema) == s(expected_schema)
 
     # let's make sure that all the references in resulting schema
     # can be resolved
@@ -299,9 +291,7 @@ def test_recursive_definitions_3():
             }
         },
     }
-    schema = Main.get_schema()
-    assert schema == expected_schema
-    check_field_schema(Main)
+    assert s(Main.get_schema()) == s(expected_schema)
 
 
 def test_recursive_definitions_4():
@@ -344,9 +334,7 @@ def test_recursive_definitions_4():
         'definitions': expected_definitions,
         '$ref': '#/definitions/test_document.Main',
     }
-    assert Main.get_schema() == expected_schema
-    check_field_schema(Main)
-
+    assert s(Main.get_schema()) == s(expected_schema)
 
     class X(Document):
         name = StringField()
@@ -375,5 +363,4 @@ def test_recursive_definitions_4():
             }
         },
     }
-    assert Z.get_schema() == expected_schema
-    check_field_schema(Z)
+    assert s(Z.get_schema()) == s(expected_schema)
