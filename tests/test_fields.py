@@ -382,3 +382,8 @@ def test_not_field():
         'not': {'type': 'string'},
     }
     assert f.get_schema() == expected_schema
+
+
+def test_null_field():
+    f = fields.NullField()
+    assert f.get_schema() == {'type': 'null'}
