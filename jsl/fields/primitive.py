@@ -8,7 +8,7 @@ from .util import validate, validate_regex
 
 __all__ = [
     'StringField', 'BooleanField', 'EmailField', 'IPv4Field', 'DateTimeField',
-    'UriField', 'NumberField', 'IntField'
+    'UriField', 'NumberField', 'IntField', 'NullField'
 ]
 
 
@@ -147,3 +147,14 @@ class NumberField(BaseSchemaField):
 class IntField(NumberField):
     """An integer field."""
     _NUMBER_TYPE = 'integer'
+
+
+class NullField(BaseSchemaField):
+    """A null field."""
+
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                   ordered=False, ref_documents=None):
+        id, res_scope = res_scope.alter(self.id)
+        schema = (OrderedDict if ordered else dict)(type='null')
+        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
+        return {}, schema
