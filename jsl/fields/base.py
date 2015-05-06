@@ -50,6 +50,7 @@ class BaseField(Resolvable):
             pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
             Note: resulting definitions will not contain schema for this document.
         :type ref_documents: set
+        :raises: :class:`SchemaGenerationException`
         :rtype: (dict, dict)
         """
         raise NotImplementedError()
@@ -64,6 +65,8 @@ class BaseField(Resolvable):
             If True, the resulting schema is an OrderedDict and its properties are ordered
             in a sensible way, which makes it more readable.
         :type ordered: bool
+        :raises: :class:`SchemaGenerationException`
+        :rtype: dict
         """
         definitions, schema = self.get_definitions_and_schema(ordered=ordered, role=role)
         if definitions:

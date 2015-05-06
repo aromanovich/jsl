@@ -2,6 +2,7 @@
 import inspect
 
 from . import registry
+from .exceptions import processing, DocumentStep
 from .fields import BaseField, DocumentField, DictField
 from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher
 from .resolutionscope import ResolutionScope
@@ -186,7 +187,9 @@ class Document(with_metaclass(DocumentMeta)):
 
     @classmethod
     def is_recursive(cls, role=DEFAULT_ROLE):
-        """Returns if the document is recursive, i.e. has a DocumentField pointing to itself."""
+        """Returns if the document is recursive, i.e. has a DocumentField
+        pointing to itself.
+        """
         for field in cls.resolve_and_walk(through_document_fields=True,
                                           role=role, visited_documents=set([cls])):
             if isinstance(field, DocumentField):
@@ -234,9 +237,16 @@ class Document(with_metaclass(DocumentMeta)):
     def get_schema(cls, role=DEFAULT_ROLE, ordered=False):
         """Returns a JSON schema (draft v4) of the document.
 
+        :arg role:
+            A role.
+        :type role: str
         :arg ordered:
-            If True, the resulting schema is an OrderedDict and its properties are ordered
-            in a sensible way, which makes it more readable.
+            If True, the resulting schema is an OrderedDict in which fields are
+            listed in the order they are added to the class. Schema properties are
+            also ordered in a sensible way, making the schema more human-readable.
+        :type ordered: bool
+        :raises: :class:`.exceptions.SchemaGenerationException`
+        :rtype: dict
         """
         definitions, schema = cls.get_definitions_and_schema(
             role=role, ordered=ordered,
@@ -260,6 +270,9 @@ class Document(with_metaclass(DocumentMeta)):
         The second element is a JSON schema of the document, and the first is a dictionary
         containing definitions that are referenced from the schema.
 
+        :arg role:
+            A role.
+        :type role: str
         :arg ordered:
             If True, the resulting schema is an OrderedDict in which fields are
             listed in the order they are added to the class. Schema properties are
@@ -273,6 +286,7 @@ class Document(with_metaclass(DocumentMeta)):
             pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
             Note: resulting definitions will not contain schema for this document.
         :type ref_documents: set
+        :raises: :class:`.exceptions.SchemaGenerationException`
         :rtype: (dict, dict)
         """
         is_recursive = cls.is_recursive()
@@ -282,8 +296,9 @@ class Document(with_metaclass(DocumentMeta)):
             ref_documents.add(cls)
             res_scope = res_scope.replace(output=res_scope.base)
 
-        definitions, schema = cls._field.get_definitions_and_schema(
-            role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+        with processing(DocumentStep(cls, role=role)):
+            definitions, schema = cls._field.get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
             definition_id = cls.get_definition_id()

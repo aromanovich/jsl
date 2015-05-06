@@ -246,11 +246,6 @@ def test_dict_field_to_schema():
     f = fields.DictField(additional_properties=False)
     assert f.get_schema()['additionalProperties'] is False
 
-    f = fields.DictField(pattern_properties={'(': fields.StringField()})
-    with pytest.raises(ValueError) as e:
-        f.get_definitions_and_schema()
-    assert str(e.value) == 'Invalid regular expression: unbalanced parenthesis'
-
     # test nested required fields
     f = fields.DictField(properties={
         'a': fields.StringField(required=True),

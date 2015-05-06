@@ -5,6 +5,7 @@ from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentFie
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
 from jsl.roles import Var, Scope, not_, all_but, Resolution
+from jsl.exceptions import SchemaGenerationException
 
 from util import s, sort_required_keys
 
@@ -270,17 +271,16 @@ def test_keyword_of_fields(keyword, field_cls):
         'role_1': [n_f, Var({'role_1': s_f}), Var({'role_2': i_f})],
         'role_2': [Var({'role_2': i_f})],
     }, propagate='role_1'))
-    assert s(field.get_schema()) == {keyword: []}
     assert s(field.get_schema(role='role_1')) == {
         keyword: [n_f.get_schema(), s_f.get_schema()]
     }
-    assert s(field.get_schema(role='role_2')) == {keyword: []}
+    with pytest.raises(SchemaGenerationException):
+        field.get_schema(role='role_2')
 
 
 def test_not_field():
     s_f = StringField()
     field = NotField(Var({'role_1': s_f}))
-    assert s(field.get_schema()) == {'not': {}}
     assert s(field.get_schema(role='role_1')) == {'not': s_f.get_schema()}
 
 

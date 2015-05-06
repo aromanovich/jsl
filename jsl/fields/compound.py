@@ -4,6 +4,7 @@ import itertools
 from .. import registry
 from ..roles import DEFAULT_ROLE, Resolvable, Var
 from ..resolutionscope import EMPTY_SCOPE
+from ..exceptions import SchemaGenerationException, processing, FieldStep, AttributeStep, ItemStep
 from .._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 from .base import BaseSchemaField, BaseField
 from .util import validate_regex
@@ -54,6 +55,12 @@ class ArrayField(BaseSchemaField):
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
+        with processing(FieldStep(self, role=role)):
+            return self._do_get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+
+    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                       ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='array')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
@@ -61,32 +68,47 @@ class ArrayField(BaseSchemaField):
 
         items, items_role = self.resolve_attr('items', role)
         if items is not None:
-            if isinstance(items, (list, tuple)):
-                items_schema = []
-                for item in items:
-                    item, item_role = item.resolve(items_role)
-                    item_definitions, item_schema = item.get_definitions_and_schema(
-                        role=item_role,
-                        res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
-                    nested_definitions.update(item_definitions)
-                    items_schema.append(item_schema)
-            else:
-                items_definitions, items_schema = items.get_definitions_and_schema(
-                    role=items_role, res_scope=res_scope, ordered=ordered,
-                    ref_documents=ref_documents)
-                nested_definitions.update(items_definitions)
-            schema['items'] = items_schema
+            with processing(AttributeStep('items', role=role)):
+                if isinstance(items, (list, tuple)):
+                    items_schema = []
+                    for i, item in enumerate(items):
+                        with processing(ItemStep(i, role=items_role)):
+                            if not isinstance(item, Resolvable):
+                                raise SchemaGenerationException(u'{0} is not resolvable'.format(item))
+                            item, item_role = item.resolve(items_role)
+                            if item is None:
+                                continue
+                            item_definitions, item_schema = item.get_definitions_and_schema(
+                                role=item_role, res_scope=res_scope,
+                                ordered=ordered, ref_documents=ref_documents)
+                            nested_definitions.update(item_definitions)
+                            items_schema.append(item_schema)
+                    if not items_schema:
+                        raise SchemaGenerationException(u'Items tuple is empty')
+                elif isinstance(items, BaseField):
+                    items_definitions, items_schema = items.get_definitions_and_schema(
+                        role=items_role, res_scope=res_scope, ordered=ordered,
+                        ref_documents=ref_documents)
+                    nested_definitions.update(items_definitions)
+                else:
+                    raise SchemaGenerationException(
+                        u'{0} is not a BaseField, a list or a tuple'.format(items))
+                schema['items'] = items_schema
 
         additional_items, additional_items_role = self.resolve_attr('additional_items', role)
         if additional_items is not None:
-            if isinstance(additional_items, bool):
-                schema['additionalItems'] = additional_items
-            else:
-                items_definitions, items_schema = additional_items.get_definitions_and_schema(
-                    role=additional_items_role,
-                    res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
-                schema['additionalItems'] = items_schema
-                nested_definitions.update(items_definitions)
+            with processing(AttributeStep('additional_items', role=role)):
+                if isinstance(additional_items, bool):
+                    schema['additionalItems'] = additional_items
+                elif isinstance(additional_items, BaseField):
+                    items_definitions, items_schema = additional_items.get_definitions_and_schema(
+                        role=additional_items_role, res_scope=res_scope,
+                        ordered=ordered, ref_documents=ref_documents)
+                    schema['additionalItems'] = items_schema
+                    nested_definitions.update(items_definitions)
+                else:
+                    raise SchemaGenerationException(
+                        u'{0} is not a BaseField or a boolean'.format(additional_items))
 
         min_items = self.resolve_attr('min_items', role).value
         if min_items is not None:
@@ -103,14 +125,17 @@ class ArrayField(BaseSchemaField):
         rv = []
         if isinstance(self.items, (list, tuple)):
             for item in self.items:
-                rv.append(item.iter_values())
+                if isinstance(item, Resolvable):
+                    rv.append(item.iter_values())
         elif isinstance(self.items, Resolvable):
             for items_value in self.items.iter_values():
                 if isinstance(items_value, (list, tuple)):
                     for item in items_value:
-                        rv.append(item.iter_values())
+                        if isinstance(item, Resolvable):
+                            rv.append(item.iter_values())
                 else:
-                    rv.append(items_value.iter_values())
+                    if isinstance(items_value, Resolvable):
+                        rv.append(items_value.iter_values())
         if isinstance(self.additional_items, Resolvable):
             rv.append(self.additional_items.iter_values())
         return itertools.chain.from_iterable(rv)
@@ -167,57 +192,82 @@ class DictField(BaseSchemaField):
         schema = OrderedDict() if ordered else {}
         required = []
         for prop, field in iteritems(properties):
-            field, field_role = field.resolve(role)
-            if field is None:
-                continue
-            field_definitions, field_schema = field.get_definitions_and_schema(
-                role=field_role, res_scope=res_scope,
-                ordered=ordered, ref_documents=ref_documents)
-            if field.resolve_attr('required', field_role).value:
-                required.append(prop)
-            schema[prop] = field_schema
-            nested_definitions.update(field_definitions)
+            with processing(ItemStep(prop, role=role)):
+                if not isinstance(field, Resolvable):
+                    raise SchemaGenerationException(u'{0} is not resolvable'.format(field))
+                field, field_role = field.resolve(role)
+                if field is None:
+                    continue
+                field_definitions, field_schema = field.get_definitions_and_schema(
+                    role=field_role, res_scope=res_scope,
+                    ordered=ordered, ref_documents=ref_documents)
+                if field.resolve_attr('required', field_role).value:
+                    required.append(prop)
+                schema[prop] = field_schema
+                nested_definitions.update(field_definitions)
         return nested_definitions, required, schema
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
+        with processing(FieldStep(self, role=role)):
+            return self._do_get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+
+    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                       ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='object')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
         nested_definitions = {}
 
-        properties, properties_role = self.resolve_attr('properties', role)
-        if properties is not None:
-            properties_definitions, properties_required, properties_schema = \
-                self._process_properties(properties, res_scope, ordered=ordered,
-                                         ref_documents=ref_documents, role=properties_role)
-            schema['properties'] = properties_schema
-            if properties_required:
-                schema['required'] = properties_required
-            nested_definitions.update(properties_definitions)
-
-        pattern_properties, pattern_properties_role = self.resolve_attr('pattern_properties', role)
-        if pattern_properties is not None:
-            for key in iterkeys(pattern_properties):
-                validate_regex(key)
-            properties_definitions, _, properties_schema = self._process_properties(
-                pattern_properties, res_scope, ordered=ordered, ref_documents=ref_documents,
-                role=pattern_properties_role)
-            schema['patternProperties'] = properties_schema
-            nested_definitions.update(properties_definitions)
-
-        additional_properties, additional_properties_role = \
-            self.resolve_attr('additional_properties', role)
-        if additional_properties is not None:
-            if isinstance(additional_properties, bool):
-                schema['additionalProperties'] = additional_properties
-            else:
-                properties_definitions, properties_schema = \
-                    additional_properties.get_definitions_and_schema(
-                        role=additional_properties_role,
-                        res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
-                schema['additionalProperties'] = properties_schema
+        with processing(AttributeStep('properties', role=role)):
+            properties, properties_role = self.resolve_attr('properties', role)
+            if properties is not None:
+                if not isinstance(properties, dict):
+                    raise SchemaGenerationException(u'{0} is not a dict'.format(properties))
+                properties_definitions, properties_required, properties_schema = \
+                    self._process_properties(properties, res_scope,
+                                             ordered=ordered, ref_documents=ref_documents,
+                                             role=properties_role)
+                schema['properties'] = properties_schema
+                if properties_required:
+                    schema['required'] = properties_required
                 nested_definitions.update(properties_definitions)
+
+        with processing(AttributeStep('pattern_properties', role=role)):
+            pattern_properties, pattern_properties_role = \
+                self.resolve_attr('pattern_properties', role)
+            if pattern_properties is not None:
+                if not isinstance(pattern_properties, dict):
+                    raise SchemaGenerationException(u'{0} is not a dict.'.format(pattern_properties))
+                for key in iterkeys(pattern_properties):
+                    try:
+                        validate_regex(key)
+                    except ValueError as e:
+                        raise SchemaGenerationException(u'Invalid regexp: {0}'.format(e))
+                properties_definitions, _, properties_schema = self._process_properties(
+                    pattern_properties, res_scope,
+                    ordered=ordered, ref_documents=ref_documents,
+                    role=pattern_properties_role)
+                schema['patternProperties'] = properties_schema
+                nested_definitions.update(properties_definitions)
+
+        with processing(AttributeStep('additional_properties', role=role)):
+            additional_properties, additional_properties_role = \
+                self.resolve_attr('additional_properties', role)
+            if additional_properties is not None:
+                if isinstance(additional_properties, bool):
+                    schema['additionalProperties'] = additional_properties
+                elif isinstance(additional_properties, BaseField):
+                    additional_properties_definitions, additional_properties_schema = \
+                        additional_properties.get_definitions_and_schema(
+                            role=additional_properties_role, res_scope=res_scope,
+                            ordered=ordered, ref_documents=ref_documents)
+                    schema['additionalProperties'] = additional_properties_schema
+                    nested_definitions.update(additional_properties_definitions)
+                else:
+                    raise SchemaGenerationException(
+                        u'{0} is not a BaseField or a boolean'.format(additional_properties))
 
         min_properties = self.resolve_attr('min_properties', role).value
         if min_properties is not None:
@@ -253,7 +303,8 @@ class DictField(BaseSchemaField):
                 field = field.resolve(properties_role).value
                 if isinstance(field, BaseField):
                     yield field
-        pattern_properties, pattern_properties_role = self.resolve_attr('pattern_properties', role)
+        pattern_properties, pattern_properties_role = \
+            self.resolve_attr('pattern_properties', role)
         if pattern_properties is not None:
             for field in itervalues(pattern_properties):
                 field = field.resolve(pattern_properties_role).value
@@ -273,22 +324,38 @@ class BaseOfField(BaseSchemaField):
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
+        with processing(FieldStep(self, role=role)):
+            return self._do_get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+
+    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                       ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = OrderedDict() if ordered else {}
         schema = self._update_schema_with_common_fields(schema, id=id)
         nested_definitions = {}
 
         one_of = []
-        fields, fields_role = self.resolve_attr('fields', role)
-        if fields is not None:
-            for field in fields:
-                field, field_role = field.resolve(fields_role)
-                if isinstance(field, BaseField):
+        with processing(AttributeStep('fields', role=role)):
+            fields, fields_role = self.resolve_attr('fields', role)
+            if not isinstance(fields, (list, tuple)):
+                raise SchemaGenerationException(u'{0} is not a list or a tuple'.format(fields))
+            for i, field in enumerate(fields):
+                with processing(ItemStep(i, role=fields_role)):
+                    if not isinstance(field, Resolvable):
+                        raise SchemaGenerationException(u'{0} is not resolvable'.format(field))
+                    field, field_role = field.resolve(fields_role)
+                    if field is None:
+                        continue
+                    if not isinstance(field, BaseField):
+                        raise SchemaGenerationException(u'{0} is not a BaseField.'.format(field))
                     field_definitions, field_schema = field.get_definitions_and_schema(
                         role=field_role, res_scope=res_scope,
                         ordered=ordered, ref_documents=ref_documents)
                     nested_definitions.update(field_definitions)
                     one_of.append(field_schema)
+            if not one_of:
+                raise SchemaGenerationException(u'Fields list is empty')
         schema[self._KEYWORD] = one_of
         return nested_definitions, schema
 
@@ -356,17 +423,22 @@ class NotField(BaseSchemaField):
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
+        with processing(FieldStep(self, role=role)):
+            return self._do_get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+
+    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                       ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = OrderedDict() if ordered else {}
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-        field, field_role = self.resolve_attr('field', role)
-        if isinstance(field, BaseField):
+        with processing(AttributeStep('field', role=role)):
+            field, field_role = self.resolve_attr('field', role)
+            if not isinstance(field, BaseField):
+                raise SchemaGenerationException(u'{0} is not a BaseField.'.format(field))
             field_definitions, field_schema = field.get_definitions_and_schema(
                 role=field_role, res_scope=res_scope,
                 ordered=ordered, ref_documents=ref_documents)
-        else:
-            field_definitions = {}
-            field_schema = {}
         schema['not'] = field_schema
         return field_definitions, schema
 
@@ -427,6 +499,12 @@ class DocumentField(BaseField):
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
+        with processing(FieldStep(self, role=role)):
+            return self._do_get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+
+    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                   ordered=False, ref_documents=None):
         document_cls = self.document_cls
         definition_id = document_cls.get_definition_id()
         if ref_documents and document_cls in ref_documents:
@@ -439,8 +517,7 @@ class DocumentField(BaseField):
             else:
                 new_role = role
             document_definitions, document_schema = document_cls.get_definitions_and_schema(
-                role=new_role,
-                res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+                role=new_role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
             if self.as_ref:
                 document_definitions[definition_id] = document_schema
                 return document_definitions, res_scope.create_ref(definition_id)

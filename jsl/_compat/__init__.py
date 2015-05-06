@@ -7,11 +7,20 @@ import sys
 
 IS_PY3 = sys.version_info[0] == 3
 string_types = (str, ) if IS_PY3 else (basestring, )
+_identity = lambda x: x
+
 
 if IS_PY3:
     from urllib.parse import urljoin, urlunsplit, urlsplit
+
+    implements_to_string = _identity
 else:
     from urlparse import urljoin, urlunsplit, urlsplit
+
+    def implements_to_string(cls):
+        cls.__unicode__ = cls.__str__
+        cls.__str__ = lambda x: x.__unicode__().encode('utf-8')
+        return cls
 
 
 def iterkeys(obj, **kwargs):
