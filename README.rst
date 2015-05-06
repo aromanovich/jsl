@@ -41,7 +41,7 @@ Example
         ]), required=True)
 
 
-``Directory.to_schema()`` will return the following schema:
+``Directory.get_schema()`` will return the following schema:
 
 .. code-block:: json
 
