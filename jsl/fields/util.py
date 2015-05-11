@@ -1,14 +1,14 @@
+# coding: utf-8
 import re
 import sre_constants
 
-from ..roles import Var
+from ..roles import Resolvable
 
 
 def validate_regex(regex):
     """
-    :type regex: str
+    :param str regex: A regular expression to validate.
     :raises: ValueError
-    :return:
     """
     try:
         re.compile(regex)
@@ -17,8 +17,8 @@ def validate_regex(regex):
 
 
 def validate(value_or_var, validator):
-    if isinstance(value_or_var, Var):
-        for _, value in value_or_var.values:
+    if isinstance(value_or_var, Resolvable):
+        for value in value_or_var.iter_possible_values():
             validator(value)
     else:
         validator(value_or_var)

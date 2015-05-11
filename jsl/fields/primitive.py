@@ -1,5 +1,5 @@
 # coding: utf-8
-from ..roles import DEFAULT_ROLE, Var
+from ..roles import DEFAULT_ROLE
 from ..resolutionscope import EMPTY_SCOPE
 from .._compat import OrderedDict
 from .base import BaseSchemaField
@@ -28,26 +28,27 @@ class StringField(BaseSchemaField):
 
     :param pattern:
         A regular expression (ECMA 262) that a string value must match.
-    :type pattern: string or :class:`Var`
+    :type pattern: string or :class:`.Resolvable`
     :param format:
-        A semantic format of the string (for example, "date-time", "email", or "uri").
-    :type format: string or :class:`Var`
+        A semantic format of the string (for example, ``"date-time"``,
+        ``"email"``, or ``"uri"``).
+    :type format: string or :class:`.Resolvable`
     :param min_length:
         A minimum length.
-    :type min_length: int or :class:`Var`
+    :type min_length: int or :class:`.Resolvable`
     :param max_length:
         A maximum length.
-    :type max_length: int or :class:`Var`
+    :type max_length: int or :class:`.Resolvable`
     """
     _FORMAT = None
 
     def __init__(self, pattern=None, format=None, min_length=None, max_length=None, **kwargs):
         if pattern is not None:
             validate(pattern, validate_regex)
-        self.pattern = pattern
-        self.format = format or self._FORMAT
-        self.max_length = max_length
-        self.min_length = min_length
+        self.pattern = pattern  #:
+        self.format = format or self._FORMAT  #:
+        self.min_length = min_length  #:
+        self.max_length = max_length  #:
         super(StringField, self).__init__(**kwargs)
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
@@ -96,29 +97,29 @@ class NumberField(BaseSchemaField):
 
     :param multiple_of:
         A value must be a multiple of this factor.
-    :type multiple_of: number or :class:`Var`
+    :type multiple_of: number or :class:`.Resolvable`
     :param minimum:
         A minimum allowed value.
-    :type minimum: number or :class:`Var`
+    :type minimum: number or :class:`.Resolvable`
     :param exclusive_minimum:
         Whether a value is allowed to exactly equal the minimum.
-    :type exclusive_minimum: bool or :class:`Var`
+    :type exclusive_minimum: bool or :class:`.Resolvable`
     :param maximum:
         A maximum allowed value.
-    :type maximum: number or :class:`Var`
+    :type maximum: number or :class:`.Resolvable`
     :param exclusive_maximum:
         Whether a value is allowed to exactly equal the maximum.
-    :type exclusive_maximum: bool or :class:`Var`
+    :type exclusive_maximum: bool or :class:`.Resolvable`
     """
     _NUMBER_TYPE = 'number'
 
     def __init__(self, multiple_of=None, minimum=None, maximum=None,
                  exclusive_minimum=None, exclusive_maximum=None, **kwargs):
-        self.multiple_of = multiple_of
-        self.minimum = minimum
-        self.exclusive_minimum = exclusive_minimum
-        self.maximum = maximum
-        self.exclusive_maximum = exclusive_maximum
+        self.multiple_of = multiple_of  #:
+        self.minimum = minimum  #:
+        self.exclusive_minimum = exclusive_minimum  #:
+        self.maximum = maximum  #:
+        self.exclusive_maximum = exclusive_maximum  #:
         super(NumberField, self).__init__(**kwargs)
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,

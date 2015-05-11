@@ -19,3 +19,4 @@ __version_info__ = tuple(int(i) for i in __version__.split('.'))
 from .document import Document
 from .fields import *
 from .roles import *
+from .exceptions import SchemaGenerationException

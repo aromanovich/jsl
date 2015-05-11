@@ -4,7 +4,7 @@ import pytest
 from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentField, IntField,
                  DateTimeField, NumberField, DictField, NotField,
                  AllOfField, AnyOfField, OneOfField)
-from jsl.roles import Var, Scope, not_, all_but, Resolution
+from jsl.roles import Var, Scope, not_, Resolution
 from jsl.exceptions import SchemaGenerationException
 
 from util import s, sort_required_keys
@@ -42,7 +42,7 @@ PARTIAL_RESPONSE_ROLE = RESPONSE_ROLE + '_partial'
 
 def test_helpers():
     when = lambda *args: Var({
-        all_but(*args): False
+        not_(*args): False
     }, default=True)
 
     assert when(RESPONSE_ROLE).resolve(RESPONSE_ROLE).value
@@ -51,11 +51,11 @@ def test_helpers():
 
 def test_scopes_basics():
     when_not = lambda *args: Var({
-        all_but(*args): True
+        not_(*args): True
     }, default=False)
 
     when = lambda *args: Var({
-        all_but(*args): False
+        not_(*args): False
     }, default=True)
 
     class Message(Document):
@@ -66,14 +66,14 @@ def test_scopes_basics():
 
     class User(Document):
         class Options(object):
-            roles_to_propagate = all_but(PARTIAL_RESPONSE_ROLE)
+            roles_to_propagate = not_(PARTIAL_RESPONSE_ROLE)
 
         with Scope(DB_ROLE) as db:
             db._id = StringField(required=True)
             db.version = StringField(required=True)
         with Scope(lambda r: r.startswith(RESPONSE_ROLE) or r == REQUEST_ROLE) as response:
             response.id = StringField(required=when_not(PARTIAL_RESPONSE_ROLE))
-        with Scope(all_but(REQUEST_ROLE)) as request:
+        with Scope(not_(REQUEST_ROLE)) as request:
             request.messages = ArrayField(DocumentField(Message), required=when_not(PARTIAL_RESPONSE_ROLE))
 
     schema = User.get_schema(role=DB_ROLE)

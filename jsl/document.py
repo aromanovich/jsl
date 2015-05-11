@@ -4,7 +4,7 @@ import inspect
 from . import registry
 from .exceptions import processing, DocumentStep
 from .fields import BaseField, DocumentField, DictField
-from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher
+from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher, Resolvable
 from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
 
@@ -12,24 +12,28 @@ from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareab
 def _set_owner_to_document_fields(cls):
     for field in cls.walk(through_document_fields=False, visited_documents=set([cls])):
         if isinstance(field, DocumentField):
-            field.set_owner(cls)
+            field.owner_cls = cls
 
 
 class Options(object):
     """
-    A container for options. Its primary purpose is to create
-    an instance of options for every instance of a :class:`Document`.
+    A container for options.
 
     All the arguments are the same and work exactly as for :class:`.fields.DictField`
-    except these:
+    except ``properties`` (since it is automatically populated with the document fields)
+    and these:
 
     :param definition_id:
         A unique string to be used as a key for this document in the "definitions"
-        schema section. If not specified, will be generated using module and class names.
+        schema section. If not specified, will be generated from module and class names.
     :type definition_id: str
     :param schema_uri:
         An URI of the JSON Schema meta-schema.
     :type schema_uri: str
+    :param roles_to_propagate:
+        A matcher. If it returns ``True`` for a role, it will be passed to nested
+        documents.
+    :type roles_to_propagate: callable, string or iterable
     """
 
     def __init__(self, additional_properties=False, pattern_properties=None,
@@ -50,14 +54,14 @@ class Options(object):
         self.schema_uri = schema_uri
 
         self.definition_id = definition_id
-        self.roles_to_propagate = construct_matcher(roles_to_propagate or all_())
+        self.roles_to_propagate = construct_matcher(roles_to_propagate or all_)
 
 
 class DocumentMeta(with_metaclass(Prepareable, type)):
     """
-    A metaclass for :class:`~.Document`. It's responsible for collecting fields and options,
-    registering the document in the registry, making it the owner of nested
-    :class:`~.DocumentField` s and so on.
+    A metaclass for :class:`~.Document`. It's responsible for collecting
+    options, fields and scopes registering the document in the registry, making
+    it the owner of nested :class:`document fields <.DocumentField>` s and so on.
     """
     options_container = Options
     """
@@ -99,7 +103,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
         """
         Collects fields from the current class and its parent classes.
 
-        :rtype: a dictionary mapping field names to :class:`~jsl.document.BaseField` s
+        :rtype: a dictionary mapping field names to fields
         """
         fields = OrderedDict()
         # fields from parent classes:
@@ -113,7 +117,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
         pre_fields = OrderedDict()
         scopes = []
         for key, value in iteritems(attrs):
-            if isinstance(value, (BaseField, Var)):
+            if isinstance(value, (BaseField, Resolvable)):
                 pre_fields[key] = value
             elif isinstance(value, Scope):
                 scopes.append(value)
@@ -137,7 +141,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
         """
         Collects options from the current class and its parent classes.
 
-        :rtype: a dictionary of options
+        :returns: a dictionary of options
         """
         options = {}
         # options from parent classes:
@@ -171,12 +175,10 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
 
 class Document(with_metaclass(DocumentMeta)):
     """A document. Can be thought as a kind of :class:`.fields.DictField`, which
-    properties are defined by the fields added to the document class.
+    properties are defined by the fields and scopes added to the document class.
 
     It can be tuned using special ``Options`` attribute (see :class:`.Options`
-    for available settings).
-
-    Example::
+    for available settings)::
 
         class User(Document):
             class Options(object):
@@ -187,8 +189,10 @@ class Document(with_metaclass(DocumentMeta)):
 
     @classmethod
     def is_recursive(cls, role=DEFAULT_ROLE):
-        """Returns if the document is recursive, i.e. has a DocumentField
-        pointing to itself.
+        """Returns ``True`` if there is a :class:`.DocumentField`-references cycle
+        that contains ``cls``.
+
+        :param str role: A current role.
         """
         for field in cls.resolve_and_walk(through_document_fields=True,
                                           role=role, visited_documents=set([cls])):
@@ -198,24 +202,34 @@ class Document(with_metaclass(DocumentMeta)):
         return False
 
     @classmethod
-    def resolve_field(cls, field, role=DEFAULT_ROLE):
-        return getattr(cls, field).resolve(role)
-
-    @classmethod
     def get_definition_id(cls):
         """Returns a unique string to be used as a key for this document
-        in the "definitions" schema section.
+        in the ``"definitions"`` schema section.
         """
         return (cls._options.definition_id or
                 '{0}.{1}'.format(cls.__module__, cls.__name__))
 
     @classmethod
+    def resolve_field(cls, field, role=DEFAULT_ROLE):
+        """Resolves a field with the name ``field`` using ``role``.
+
+        :raises: :class:`AttributeError`
+        """
+        return getattr(cls, field).resolve(role)
+
+    @classmethod
     def resolve_and_iter_fields(cls, role=DEFAULT_ROLE):
+        """The same as :meth:`.iter_fields`, but :class:`resolvables <.Resolvable>`
+        are resolved using ``role``.
+        """
         return cls._field.resolve_and_iter_fields(role=role)
 
     @classmethod
     def resolve_and_walk(cls, role=DEFAULT_ROLE, through_document_fields=False,
                          visited_documents=frozenset()):
+        """The same as :meth:`.walk`, but :class:`resolvables <.Resolvable>` are
+        resolved using ``role``.
+        """
         fields = cls._field.resolve_and_walk(
             role=role, through_document_fields=through_document_fields,
             visited_documents=visited_documents)
@@ -224,10 +238,26 @@ class Document(with_metaclass(DocumentMeta)):
 
     @classmethod
     def iter_fields(cls):
+        """Iterates over the fields of the document, resolving its
+        :class:`resolvables <.Resolvable>` to all possible values.
+        """
         return cls._field.iter_fields()
 
     @classmethod
     def walk(cls, through_document_fields=False, visited_documents=frozenset()):
+        """
+        Iterates recursively over the fields of the document, resolving
+        occurring :class:`resolvables <.Resolvable>` to their all possible values.
+
+        Visits fields in a DFS order.
+
+        :param bool through_document_fields:
+            If ``True``, walks through nested :class:`.DocumentField` fields.
+        :param set visited_documents:
+            Keeps track of visited :class:`documents <.Document>` to avoid infinite
+            recursion when ``through_document_field`` is ``True``.
+        :returns: iterable of :class:`.BaseField`
+        """
         fields = cls._field.walk(through_document_fields=through_document_fields,
                                  visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
@@ -237,16 +267,14 @@ class Document(with_metaclass(DocumentMeta)):
     def get_schema(cls, role=DEFAULT_ROLE, ordered=False):
         """Returns a JSON schema (draft v4) of the document.
 
-        :arg role:
-            A role.
-        :type role: str
-        :arg ordered:
-            If True, the resulting schema is an OrderedDict in which fields are
+        :param str role:  A role.
+        :param bool ordered:
+            If ``True``, the resulting schema dictionary is ordered. Fields are
             listed in the order they are added to the class. Schema properties are
-            also ordered in a sensible way, making the schema more human-readable.
-        :type ordered: bool
-        :raises: :class:`.exceptions.SchemaGenerationException`
-        :rtype: dict
+            also ordered in a sensible and consistent way, making the schema more
+            human-readable.
+        :raises: :class:`.SchemaGenerationException`
+        :rtype: dict or OrderedDict
         """
         definitions, schema = cls.get_definitions_and_schema(
             role=role, ordered=ordered,
@@ -267,27 +295,24 @@ class Document(with_metaclass(DocumentMeta)):
                                    ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 
-        The second element is a JSON schema of the document, and the first is a dictionary
-        containing definitions that are referenced from the schema.
+        The second element is a JSON schema of the document, and the first is
+        a dictionary that contains definitions that are referenced from the schema.
 
-        :arg role:
-            A role.
-        :type role: str
-        :arg ordered:
-            If True, the resulting schema is an OrderedDict in which fields are
+        :param str role:  A role.
+        :param bool ordered:
+            If ``True``, the resulting schema dictionary is ordered. Fields are
             listed in the order they are added to the class. Schema properties are
-            also ordered in a sensible way, making the schema more human-readable.
-        :type ordered: bool
-        :arg res_scope:
-            Current resolution scope.
-        :type res_scope: :class:`.scope.ResolutionScope`
-        :arg ref_documents:
-            If subclass of :class:`Document` is in this set, all :class:`DocumentField` s
-            pointing to it will be resolved to a reference: ``{"$ref": "#/definitions/..."}``.
+            also ordered in a sensible and consistent way, making the schema more
+            human-readable.
+        :param res_scope:
+            The current resolution scope.
+        :type res_scope: :class:`~.ResolutionScope`
+        :param set ref_documents:
+            If subclass of :class:`.Document` is in this set, all :class:`.DocumentField` s
+            pointing to it will be resolved as a reference: ``{"$ref": "#/definitions/..."}``.
             Note: resulting definitions will not contain schema for this document.
-        :type ref_documents: set
-        :raises: :class:`.exceptions.SchemaGenerationException`
-        :rtype: (dict, dict)
+        :raises: :class:`~.SchemaGenerationException`
+        :rtype: (dict, dict or OrderedDict)
         """
         is_recursive = cls.is_recursive()
 

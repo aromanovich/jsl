@@ -10,25 +10,26 @@ from ._compat import implements_to_string
 def processing(step):
     """
     A context manager. If an :class:`SchemaGenerationException` occurs within
-    its nested code block, it adds :param:`step` to it and reraises.
+    its nested code block, it adds ``step`` to it and reraises.
     """
     try:
         yield
     except SchemaGenerationException as e:
-        e.add_step(step)
+        e.steps.appendleft(step)
         raise
 
 
 class Step(object):
-    """
-    Defines a step of the schema generation process that caused an error.
-
-    :param role: A current role.
-    :type role: str
-    """
+    """A step of the schema generation process that caused the error."""
 
     def __init__(self, entity, role=DEFAULT_ROLE):
+        """
+        :param entity: An entity being processed.
+        :param str role: A current role.
+        """
+        #: An entity being processed.
         self.entity = entity
+        #: A current role.
         self.role = role
 
     def __eq__(self, other):
@@ -49,8 +50,9 @@ class Step(object):
 @implements_to_string
 class DocumentStep(Step):
     """
-    :param entity: A document being processed.
-    :type entity: subclass of :class:`Document`
+    A step of processing a :class:`document <.Document>`.
+
+    :type entity: subclass of :class:`~.Document`
     """
 
     def __str__(self):
@@ -60,8 +62,9 @@ class DocumentStep(Step):
 @implements_to_string
 class FieldStep(Step):
     """
-    :param entity: A field being processed.
-    :type entity: instance of :class:`BaseField`
+    A step of processing a :class:`field <.BaseField>`.
+
+    :type entity: instance of :class:`~.BaseField`
     """
 
     def __str__(self):
@@ -71,9 +74,11 @@ class FieldStep(Step):
 @implements_to_string
 class AttributeStep(Step):
     """
-    :param entity:
-        The name of a field's attribute being processed
-        (e.g., ``properties``, ``additional_properties``, etc.)
+    A step of processing an attribute of a field.
+
+    ``entity`` is the name of an attribute
+    (e.g., ``"properties"``, ``"additional_properties"``, etc.)
+
     :type entity: str
     """
 
@@ -84,10 +89,12 @@ class AttributeStep(Step):
 @implements_to_string
 class ItemStep(Step):
     """
-    :param entity:
-        An attribute item being processed
-        (i.e., ``"firstname"`` if current attribute is ``properties`` or
-        ``0`` if current attribute is ``items``).
+    A step of processing an item of an attribute.
+
+    ``entity`` is either a key or an index (e.g., it can be ``"created_at"``
+    if the current attribute is ``properties`` of a :class:`~.DictField` or
+    ``0`` if the current attribute is ``items`` of a :class:`~.ArrayField`).
+
     :type entity: str or int
     """
 
@@ -97,14 +104,31 @@ class ItemStep(Step):
 
 @implements_to_string
 class SchemaGenerationException(Exception):
+    """
+    Raised when a valid JSON schema can not be generated from a JSL object.
+
+    Examples of such situation are the following:
+
+    * A :class:`variable <.Var>` resolves to an integer but a
+      :class:`.BaseField` expected;
+    * All choices of :class:`.OneOfField` are variables and all resolve to ``None``.
+
+    Note: this error can only happen if variables are used in a document or field
+    description.
+
+    :param str message: A message.
+    """
+
     def __init__(self, message):
         self.message = message
+        """A message."""
         self.steps = collections.deque()
+        """
+        A deque of :class:`steps <.Step>`, ordered from the first (the least specific)
+        to the last (the most specific).
+        """
 
-    def add_step(self, step):
-        self.steps.appendleft(step)
-
-    def format_steps(self):
+    def _format_steps(self):
         if not self.steps:
             return '-'
         parts = []
@@ -120,4 +144,4 @@ class SchemaGenerationException(Exception):
         return ''.join(parts)
 
     def __str__(self):
-        return u"{0}\nSteps: {1}".rstrip().format(self.message, self.format_steps())
+        return u'{0}\nSteps: {1}'.format(self.message, self._format_steps())

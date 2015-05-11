@@ -2,13 +2,16 @@
 import sys
 import os
 
-sys.path.insert(0, os.path.abspath('../..'))
+import alabaster
 
+sys.path.insert(0, os.path.abspath('../..'))
 import jsl
+
 
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
+    'alabaster',
 ]
 
 templates_path = ['_templates']
@@ -23,16 +26,28 @@ release = jsl.__version__
 language = 'en'
 pygments_style = 'sphinx'
 autodoc_member_order = 'bysource'
+autoclass_content = 'both'
 
 # Options for HTML output
 
-html_theme = 'nature'
-html_theme_options = {}
+html_theme = 'alabaster'
+html_theme_path = [alabaster.get_path()]
+html_theme_options = {
+    'github_user': 'aromanovich',
+    'github_repo': 'jsl',
+    'travis_button': True,
+}
 html_static_path = ['_static']
 htmlhelp_basename = 'JSLdoc'
+html_sidebars = {
+    '**': [
+        'about.html', 'navigation.html', 'searchbox.html', 'donate.html',
+    ]
+}
 
 # Options for manual page output
 
 man_pages = [
     ('index', 'jsl', u'JSL Documentation', [u'Anton Romanovich'], 1),
 ]
+

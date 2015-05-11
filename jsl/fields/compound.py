@@ -2,7 +2,7 @@
 import itertools
 
 from .. import registry
-from ..roles import DEFAULT_ROLE, Resolvable, Var
+from ..roles import DEFAULT_ROLE, Resolvable
 from ..resolutionscope import EMPTY_SCOPE
 from ..exceptions import SchemaGenerationException, processing, FieldStep, AttributeStep, ItemStep
 from .._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
@@ -25,32 +25,33 @@ class ArrayField(BaseSchemaField):
         Either of the following:
 
         * :class:`BaseField` -- all items of the array must match the field schema;
-        * a list or a tuple of :class:`BaseField` s -- all items of the array must be
-          valid according to the field schema at the corresponding index (tuple typing).
+        * a list or a tuple of :class:`fields <.BaseField>` -- all items of the array must be
+          valid according to the field schema at the corresponding index (tuple typing);
+        * a :class:`.Resolvable` resolving to either of the first two options.
 
     :param min_items:
         A minimum length of an array.
-    :type min_items: int or :class:`Var`
+    :type min_items: int or :class:`.Resolvable`
     :param max_items:
         A maximum length of an array.
-    :type max_items: int or :class:`Var`
+    :type max_items: int or :class:`.Resolvable`
     :param unique_items:
         Whether all the values in the array must be distinct.
-    :type unique_items: bool or :class:`Var`
+    :type unique_items: bool or :class:`.Resolvable`
     :param additional_items:
         If the value of ``items`` is a list or a tuple, and the array length is larger than
         the number of fields in ``items``, then the additional items are described
-        by the :class:`BaseField` passed using this argument.
-    :type additional_items: bool or :class:`BaseField` or :class:`Var`
+        by the :class:`.BaseField` passed using this argument.
+    :type additional_items: bool or :class:`.BaseField` or :class:`.Resolvable`
     """
 
     def __init__(self, items=None, additional_items=None,
                  min_items=None, max_items=None, unique_items=None, **kwargs):
-        self.items = items
-        self.min_items = min_items
-        self.max_items = max_items
-        self.unique_items = unique_items
-        self.additional_items = additional_items
+        self.items = items  #:
+        self.min_items = min_items  #:
+        self.max_items = max_items  #:
+        self.unique_items = unique_items  #:
+        self.additional_items = additional_items  #:
         super(ArrayField, self).__init__(**kwargs)
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
@@ -126,18 +127,18 @@ class ArrayField(BaseSchemaField):
         if isinstance(self.items, (list, tuple)):
             for item in self.items:
                 if isinstance(item, Resolvable):
-                    rv.append(item.iter_values())
+                    rv.append(item.iter_possible_values())
         elif isinstance(self.items, Resolvable):
-            for items_value in self.items.iter_values():
+            for items_value in self.items.iter_possible_values():
                 if isinstance(items_value, (list, tuple)):
                     for item in items_value:
                         if isinstance(item, Resolvable):
-                            rv.append(item.iter_values())
+                            rv.append(item.iter_possible_values())
                 else:
                     if isinstance(items_value, Resolvable):
-                        rv.append(items_value.iter_values())
+                        rv.append(items_value.iter_possible_values())
         if isinstance(self.additional_items, Resolvable):
-            rv.append(self.additional_items.iter_values())
+            rv.append(self.additional_items.iter_possible_values())
         return itertools.chain.from_iterable(rv)
 
     def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
@@ -160,30 +161,30 @@ class DictField(BaseSchemaField):
 
     :param properties:
         A dictionary containing fields.
-    :type properties: dict from str to :class:`BaseField` or :class:`Var`
+    :type properties: dict[str -> :class:`.BaseField` or :class:`.Resolvable`]
     :param pattern_properties:
         A dictionary whose keys are regular expressions (ECMA 262).
         Properties match against these regular expressions, and for any that match,
         the property is described by the corresponding field schema.
-    :type pattern_properties: dict from str to :class:`BaseField` or :class:`Var`
+    :type pattern_properties: dict[str -> :class:`.BaseField` or :class:`.Resolvable`]
     :param additional_properties:
         Describes properties that are not described by the ``properties`` or ``pattern_properties``.
-    :type additional_properties: bool or :class:`BaseField` or :class:`Var`
+    :type additional_properties: bool or :class:`.BaseField` or :class:`.Resolvable`
     :param min_properties:
         A minimum number of properties.
-    :type min_properties: int or :class:`Var`
+    :type min_properties: int or :class:`.Resolvable`
     :param max_properties:
         A maximum number of properties
-    :type max_properties: int or :class:`Var`
+    :type max_properties: int or :class:`.Resolvable`
     """
 
     def __init__(self, properties=None, pattern_properties=None, additional_properties=None,
                  min_properties=None, max_properties=None, **kwargs):
-        self.properties = properties
-        self.pattern_properties = pattern_properties
-        self.additional_properties = additional_properties
-        self.min_properties = min_properties
-        self.max_properties = max_properties
+        self.properties = properties  #:
+        self.pattern_properties = pattern_properties  #:
+        self.additional_properties = additional_properties  #:
+        self.min_properties = min_properties  #:
+        self.max_properties = max_properties  #:
         super(DictField, self).__init__(**kwargs)
 
     def _process_properties(self, properties, res_scope, ordered=False,
@@ -283,7 +284,7 @@ class DictField(BaseSchemaField):
             rv = []
             possible_dicts = []
             if isinstance(dict_or_resolvable, Resolvable):
-                possible_dicts = dict_or_resolvable.iter_values()
+                possible_dicts = dict_or_resolvable.iter_possible_values()
             elif isinstance(dict_or_resolvable, dict):
                 possible_dicts = [dict_or_resolvable]
             for possible_dict in possible_dicts:
@@ -294,7 +295,7 @@ class DictField(BaseSchemaField):
         resolvables.extend(_extract_resolvables(self.pattern_properties))
         if isinstance(self.additional_properties, Resolvable):
             resolvables.append(self.additional_properties)
-        return itertools.chain.from_iterable(r.iter_values() for r in resolvables)
+        return itertools.chain.from_iterable(r.iter_possible_values() for r in resolvables)
 
     def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
         properties, properties_role = self.resolve_attr('properties', role)
@@ -319,7 +320,7 @@ class BaseOfField(BaseSchemaField):
     _KEYWORD = None
 
     def __init__(self, fields, **kwargs):
-        self.fields = fields
+        self.fields = fields  #:
         super(BaseOfField, self).__init__(**kwargs)
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
@@ -364,12 +365,12 @@ class BaseOfField(BaseSchemaField):
         if isinstance(self.fields, (list, tuple)):
             resolvables.extend(self.fields)
         if isinstance(self.fields, Resolvable):
-            for fields in self.fields.iter_values():
+            for fields in self.fields.iter_possible_values():
                 if isinstance(fields, (list, tuple)):
                     resolvables.extend(fields)
                 elif isinstance(fields, Resolvable):
                     resolvables.append(fields)
-        return itertools.chain.from_iterable(r.iter_values() for r in resolvables)
+        return itertools.chain.from_iterable(r.iter_possible_values() for r in resolvables)
 
     def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
         fields, fields_role = self.resolve_attr('fields', role)
@@ -381,40 +382,49 @@ class BaseOfField(BaseSchemaField):
 
 class OneOfField(BaseOfField):
     """
-    :param fields: a list of fields, exactly one of which describes the data
-    :type fields: list whose elements are :class:`BaseField` s or :class:`Var` s
+    :param fields: A list of fields, exactly one of which describes the data.
+    :type fields: list[:class:`.BaseField` or :class:`.Resolvable`]
+
+    .. attribute:: fields
+        :annotation: = None
     """
     _KEYWORD = 'oneOf'
 
 
 class AnyOfField(BaseOfField):
     """
-    :param fields: a list of fields, at least one of which describes the data
-    :type fields: list whose elements are :class:`BaseField` s or :class:`Var` s
+    :param fields: A list of fields, at least one of which describes the data.
+    :type fields: list[:class:`.BaseField` or :class:`.Resolvable`]
+
+    .. attribute:: fields
+        :annotation: = None
     """
     _KEYWORD = 'anyOf'
 
 
 class AllOfField(BaseOfField):
     """
-    :param fields: a list of fields, all of which describe the data
-    :type fields: list whose elements are :class:`BaseField` s or :class:`Var` s
+    :param fields: A list of fields, all of which describe the data.
+    :type fields: list[:class:`.BaseField` or :class:`.Resolvable`]
+
+    .. attribute:: fields
+        :annotation: = None
     """
     _KEYWORD = 'allOf'
 
 
 class NotField(BaseSchemaField):
     """
-    :param field: a field to negate
-    :type field: :class:`BaseField` or :class:`Var`
+    :param field: A field to negate.
+    :type field: :class:`.BaseField` or :class:`.Resolvable`
     """
 
     def __init__(self, field, **kwargs):
-        self.field = field
+        self.field = field  #:
         super(NotField, self).__init__(**kwargs)
 
     def iter_fields(self):
-        return self.field.iter_values()
+        return self.field.iter_possible_values()
 
     def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
         field, field_role = self.resolve_attr('field', role)
@@ -447,21 +457,20 @@ class DocumentField(BaseField):
     """A reference to a nested document.
 
     :param document_cls:
-        A string (dot-separated path to document class, i.e. 'app.resources.User'),
-        :data:`RECURSIVE_REFERENCE_CONSTANT` or a :class:`Document`
-    :param as_ref:
-        If true, ``document_cls``'s schema is placed into the definitions section, and
-        the field schema is just a reference to it: ``{"$ref": "#/definitions/..."}``.
-        Makes a resulting schema more readable.
+        A string (dot-separated path to document class, i.e. ``"app.resources.User"``),
+        :data:`RECURSIVE_REFERENCE_CONSTANT` or a :class:`.Document` subclass.
+    :param bool as_ref:
+        If ``True``, the schema of :attr:`document_cls`` is placed into the definitions
+        dictionary, and the field schema just references to it:
+        ``{"$ref": "#/definitions/..."}``.
+        It may make a resulting schema more readable.
     """
 
     def __init__(self, document_cls, as_ref=False, **kwargs):
-        """
-        :type document_cls: basestring or BaseField
-        """
         self._document_cls = document_cls
+        #: A :class:`.Document` this field is attached to.
         self.owner_cls = None
-        self.as_ref = as_ref
+        self.as_ref = as_ref  #:
         super(DocumentField, self).__init__(**kwargs)
 
     def iter_fields(self):
@@ -504,7 +513,7 @@ class DocumentField(BaseField):
                 role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
 
     def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
-                                   ordered=False, ref_documents=None):
+                                       ordered=False, ref_documents=None):
         document_cls = self.document_cls
         definition_id = document_cls.get_definition_id()
         if ref_documents and document_cls in ref_documents:
@@ -524,11 +533,9 @@ class DocumentField(BaseField):
             else:
                 return document_definitions, document_schema
 
-    def set_owner(self, owner_cls):
-        self.owner_cls = owner_cls
-
     @property
     def document_cls(self):
+        """A :class:`.Document` this field points to."""
         document_cls = self._document_cls
         if isinstance(document_cls, string_types):
             if document_cls == RECURSIVE_REFERENCE_CONSTANT:
