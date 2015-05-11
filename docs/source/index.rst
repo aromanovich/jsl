@@ -4,6 +4,12 @@ Welcome to JSL's documentation!
 
 This site covers the usage & API documentation of JSL v\ |version|.
 
+JSL is a language for describing JSON schemas.
+
+The code is open source and available at `GitHub`_.
+
+.. _GitHub: https://github.com/aromanovich/jsl
+
 Tutorial
 --------
 
