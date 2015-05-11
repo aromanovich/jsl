@@ -9,6 +9,10 @@ JSL
     :target: https://coveralls.io/r/aromanovich/jsl?branch=master
     :alt: Coverage
 
+.. image:: https://readthedocs.org/projects/jsl/badge/?version=latest
+    :target: https://readthedocs.org/projects/docs/
+    :alt: Documentation
+
 .. image:: http://img.shields.io/pypi/v/jsl.svg
     :target: https://pypi.python.org/pypi/jsl
     :alt: PyPI Version

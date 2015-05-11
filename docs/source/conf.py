@@ -2,16 +2,16 @@
 import sys
 import os
 
-import alabaster
+on_rtd = os.environ.get('READTHEDOCS', None) == 'True'
+if not on_rtd:
+    import sphinx_rtd_theme
 
 sys.path.insert(0, os.path.abspath('../..'))
 import jsl
 
-
 extensions = [
     'sphinx.ext.autodoc',
     'sphinx.ext.viewcode',
-    'alabaster',
 ]
 
 templates_path = ['_templates']
@@ -30,13 +30,9 @@ autoclass_content = 'both'
 
 # Options for HTML output
 
-html_theme = 'alabaster'
-html_theme_path = [alabaster.get_path()]
-html_theme_options = {
-    'github_user': 'aromanovich',
-    'github_repo': 'jsl',
-    'travis_button': True,
-}
+if not on_rtd:
+    html_theme = 'sphinx_rtd_theme'
+    html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 html_static_path = ['_static']
 htmlhelp_basename = 'JSLdoc'
 html_sidebars = {
@@ -50,4 +46,7 @@ html_sidebars = {
 man_pages = [
     ('index', 'jsl', u'JSL Documentation', [u'Anton Romanovich'], 1),
 ]
+
+
+
 

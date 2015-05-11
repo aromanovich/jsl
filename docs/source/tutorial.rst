@@ -40,8 +40,6 @@ It encourages the decomposition of large schemas into smaller readable pieces
 and makes schemas extendable using class inheritance. It enables the autocompleme
 feature or IDEs and makes any mistype in a JSON schema keyword cause a RuntimeError.
 
-Let's take a look at examples.
-
 .. links
 
 .. _Python implementation: https://python-jsonschema.readthedocs.org/en/latest/

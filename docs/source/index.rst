@@ -16,10 +16,6 @@ For an overview of JSL's basic functionality, please see the :doc:`tutorial`.
 
     tutorial
 
-
-API Documentation
------------------
-
 .. toctree::
     :caption: API Documentation
     :name: api-documentation
