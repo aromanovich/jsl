@@ -2,13 +2,12 @@
 Welcome to JSL's documentation!
 ===============================
 
-This site covers the usage & API documentation of JSL v\ |version|.
+JSL is a `DSL`_ for describing JSON schemas.
 
-JSL is a language for describing JSON schemas.
-
-The code is open source and available at `GitHub`_.
+Its code is open source and available at `GitHub`_.
 
 .. _GitHub: https://github.com/aromanovich/jsl
+.. _DSL: http://en.wikipedia.org/wiki/Domain-specific_language
 
 Tutorial
 --------
@@ -21,6 +20,9 @@ For an overview of JSL's basic functionality, please see the :doc:`tutorial`.
     :hidden:
 
     tutorial
+
+API Documentation
+-----------------
 
 .. toctree::
     :caption: API Documentation
