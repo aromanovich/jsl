@@ -28,64 +28,57 @@ JSL is a Python DSL for defining JSON Schemas.
 Example
 -------
 
-.. code-block:: python
+::
 
-    from jsl import Document, StringField, ArrayField, DocumentField, OneOfField
+    import jsl
 
-    class Entry(Document):
-        name = StringField(required=True)
+    class Entry(jsl.Document):
+        name = jsl.StringField(required=True)
 
     class File(Entry):
-        content = StringField(required=True)
+        content = jsl.StringField(required=True)
 
     class Directory(Entry):
-        content = ArrayField(OneOfField([
-            DocumentField(File, as_ref=True),
-            DocumentField('self')  # recursion
+        content = jsl.ArrayField(jsl.OneOfField([
+            jsl.DocumentField(File, as_ref=True),
+            jsl.DocumentField(jsl.RECURSIVE_REFERENCE_CONSTANT)
         ]), required=True)
 
+``Directory.get_schema(ordered=True)`` will return the following JSON schema:
 
-``Directory.get_schema()`` will return the following schema:
-
-.. code-block:: json
+::
 
     {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "module.File": {
+            "directory": {
                 "type": "object",
-                "additionalProperties": false,
-                "required": [
-                    "content",
-                    "name"
-                ],
                 "properties": {
-                    "content": {"type": "string"},
-                    "name": {"type": "string"}
-                }
-            },
-            "module.Directory": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": [
-                    "content",
-                    "name"
-                ],
-                "properties": {
+                    "name": {"type": "string"},
                     "content": {
                         "type": "array",
                         "items": {
                             "oneOf": [
-                                {"$ref": "#/definitions/module.File"},
-                                {"$ref": "#/definitions/module.Directory"}
+                                {"$ref": "#/definitions/file"},
+                                {"$ref": "#/definitions/directory"}
                             ]
                         }
-                    },
-                    "name": {"type": "string"}
-                }
+                    }
+                },
+                "required": ["name", "content"],
+                "additionalProperties": false
+            },
+            "file": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["name", "content"],
+                "additionalProperties": false
             }
         },
-        "$ref": "#/definitions/module.Directory"
+        "$ref": "#/definitions/directory"
     }
 
 Installing

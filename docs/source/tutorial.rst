@@ -56,53 +56,49 @@ Quick Example
         name = jsl.StringField(required=True)
 
     class File(Entry):
-        class Options(object):
-            definition_id = 'file'
         content = jsl.StringField(required=True)
 
     class Directory(Entry):
-        class Options(object):
-            definition_id = 'directory'
         content = jsl.ArrayField(jsl.OneOfField([
             jsl.DocumentField(File, as_ref=True),
             jsl.DocumentField(jsl.RECURSIVE_REFERENCE_CONSTANT)
         ]), required=True)
 
-``Directory.get_schema()`` returns the following schema:
+``Directory.get_schema(ordered=True)`` returns the following schema:
 
 ::
 
     {
         "$schema": "http://json-schema.org/draft-04/schema#",
         "definitions": {
-            "module.File": {
+            "directory": {
                 "type": "object",
-                "additionalProperties": false,
-                "required": ["content", "name"],
                 "properties": {
-                    "content": {"type": "string"},
-                    "name": {"type": "string"}
-                }
-            },
-            "module.Directory": {
-                "type": "object",
-                "additionalProperties": false,
-                "required": ["content", "name"],
-                "properties": {
+                    "name": {"type": "string"},
                     "content": {
                         "type": "array",
                         "items": {
                             "oneOf": [
-                                {"$ref": "#/definitions/module.File"},
-                                {"$ref": "#/definitions/module.Directory"}
+                                {"$ref": "#/definitions/file"},
+                                {"$ref": "#/definitions/directory"}
                             ]
                         }
-                    },
-                    "name": {"type": "string"}
-                }
+                    }
+                },
+                "required": ["name", "content"],
+                "additionalProperties": false
+            },
+            "file": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string"},
+                    "content": {"type": "string"}
+                },
+                "required": ["name", "content"],
+                "additionalProperties": false
             }
         },
-        "$ref": "#/definitions/module.Directory"
+        "$ref": "#/definitions/directory"
     }
 
 Main Features
