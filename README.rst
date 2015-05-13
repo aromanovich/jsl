@@ -10,7 +10,7 @@ JSL
     :alt: Coverage
 
 .. image:: https://readthedocs.org/projects/jsl/badge/?version=latest
-    :target: https://readthedocs.org/projects/docs/
+    :target: https://readthedocs.org/projects/jsl/
     :alt: Documentation
 
 .. image:: http://img.shields.io/pypi/v/jsl.svg
