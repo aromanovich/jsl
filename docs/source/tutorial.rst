@@ -31,13 +31,13 @@ Why inventing a DSL?
 * The syntax is not very concise. The signal-to-noise ratio increases rapidly
   with the complexity of the schema, which makes large schemas difficult to read.
 
-JSL is created to address there issues.
+JSL is created to address these issues.
 It allows you to define JSON schemas as if they were ORM models --
 using classes and fields and relying on the deep metaclass magic under the hood.
 
 Such an approach makes writing and reading schemas easier.
 It encourages the decomposition of large schemas into smaller readable pieces
-and makes schemas extendable using class inheritance. It enables the autocompleme
+and makes schemas extendable using class inheritance. It enables the autocomplete
 feature or IDEs and makes any mistype in a JSON schema keyword cause a RuntimeError.
 
 .. links
@@ -168,8 +168,7 @@ JSL provides means not to repeat ourselves.
 Using Variables
 +++++++++++++++
 
-Let's start with describing :class:`variables <.Var>`.
-Variables are objects which value depends on a given role.
+:class:`Variables <.Var>`. are objects which value depends on a given role.
 Which value must be used for which role is determined by a list of rules.
 A rule is a pair of a matcher and a value. A matcher is a callable that returns
 ``True`` or ``False`` (or a string or an iterable that will be converted to a lambda).
@@ -201,25 +200,28 @@ Let's introduce a couple of **roles** for our ``User`` document::
     REQUEST_ROLE = 'request'
     # to describe structures of responses
     RESPONSE_ROLE = 'response'
-    # to desribe structures of database documents
+    # to describe structures of database documents
     DB_ROLE = 'db'
 
-And describe ``User`` and ``UserCreationRequest`` using a single document
-and a variable::
+Create a variable ``true_if_not_requests`` which is only ``True`` when the role is
+``REQUEST_ROLE``::
 
     true_if_not_request = jsl.Var({
         jsl.not_(REQUEST_ROLE): True
     })
 
+And describe ``User`` and ``UserCreationRequest`` in a single document
+using ``true_if_not_requests`` for the ``required`` argument of the ``id`` field::
+
     class User(jsl.Document):
         id = jsl.StringField(required=true_if_not_request)
         login = jsl.StringField(required=True, min_length=3, max_length=20)
 
-Then the ``role`` argument can be specified for the :meth:`.Document.get_schema` method::
+The ``role`` argument can be specified for the :meth:`.Document.get_schema` method::
 
     User.get_schema(ordered=True, role=REQUEST_ROLE)
 
-The resulting schema::
+That call will return the following schema. Note that ``"id"`` is not listed as required::
 
     {
         "$schema": "http://json-schema.org/draft-04/schema#",

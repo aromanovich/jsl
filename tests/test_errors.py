@@ -5,7 +5,8 @@ from jsl.fields import (ArrayField, StringField, IntField, BaseSchemaField,
                         DictField, OneOfField, AnyOfField, AllOfField, NotField,
                         DocumentField)
 from jsl.roles import DEFAULT_ROLE, Var
-from jsl.exceptions import SchemaGenerationException, FieldStep, AttributeStep, ItemStep, DocumentStep
+from jsl.exceptions import (SchemaGenerationException, FieldStep, AttributeStep,
+                            ItemStep, DocumentStep)
 from jsl.resolutionscope import EMPTY_SCOPE
 
 
