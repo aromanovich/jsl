@@ -18,6 +18,31 @@ class FieldStub(BaseSchemaField):
         raise SchemaGenerationException(self.ERROR_MESSAGE)
 
 
+def test_exceptions():
+    f_1 = StringField()
+    f_2 = StringField()
+
+    # test __eq__ and __ne__
+    assert FieldStep(f_1) == FieldStep(f_1)
+    assert FieldStep(f_1, role='role_1') != FieldStep(f_1)
+    assert FieldStep(f_1) != FieldStep(f_2)
+    assert FieldStep(f_1) != AttributeStep('fields')
+    assert not (FieldStep(f_1) == AttributeStep('fields'))
+
+    # test __repr__
+    r = repr(FieldStep(f_1, role='role_1'))
+    assert repr(f_1) in r
+    assert 'role_1' in r
+
+    message = 'Something went wrong'
+    e = SchemaGenerationException(message)
+    assert str(e) == message
+
+    step = FieldStep(f_1)
+    e.steps.appendleft(step)
+    assert str(e) == '{0}\nSteps: {1}'.format(message, step)
+
+
 def test_error():
     db_role_friends_field = ArrayField((StringField(), None))
     request_role_friends_field = ArrayField(StringField())

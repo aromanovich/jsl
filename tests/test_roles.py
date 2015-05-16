@@ -19,6 +19,11 @@ def test_var():
         ('role_2', value_2),
         (not_('role_3'), value_3),
     ])
+    assert len(var.values) == 3
+    for matcher, value in var.values:
+        assert callable(matcher)
+        assert type(value) == object
+
     assert var.resolve('role_1') == Resolution(value_1, 'role_1')
     assert var.resolve('role_2') == Resolution(value_2, 'role_2')
     assert var.resolve('default') == Resolution(value_3, 'default')
@@ -32,6 +37,12 @@ def test_var():
     assert var.resolve('role_2') == Resolution(value_3, 'role_2')
     assert var.resolve('default') == Resolution(value_3, 'default')
     assert var.resolve('role_3') == Resolution(None, 'role_3')
+
+    var = Var([
+        ('role_1', value_1),
+        ('role_2', value_2),
+    ], propagate='role_2')
+    assert callable(var.propagate)
 
 
 DB_ROLE = 'db'
@@ -47,6 +58,20 @@ def test_helpers():
 
     assert when(RESPONSE_ROLE).resolve(RESPONSE_ROLE).value
     assert not when(RESPONSE_ROLE).resolve(REQUEST_ROLE).value
+
+
+def test_scope():
+    scope = Scope(DB_ROLE)
+    f = StringField()
+    scope.login = f
+    assert scope.login == f
+
+    assert scope.__fields__ == {
+        'login': f,
+    }
+
+    with pytest.raises(AttributeError):
+        scope.gsomgsom
 
 
 def test_scopes_basics():
@@ -379,11 +404,13 @@ def test_basics():
 def test_document():
     class A(Document):
         a = Var({'role_1': DocumentField('self')})
+
     assert not A.is_recursive()
     assert A.is_recursive(role='role_1')
 
     class A(Document):
         class Options(object):
             definition_id = Var({'role_1': 'a'})
+
     assert A.get_definition_id(role='role_1') == 'a'
     assert A.get_definition_id(role='role_2').endswith(A.__name__)

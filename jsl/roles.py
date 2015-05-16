@@ -63,7 +63,7 @@ class Resolvable(object):
     depending on a role.
     """
 
-    def resolve(self, role):
+    def resolve(self, role):  # pragma: no cover
         """
         Returns a value for a given ``role``.
 
@@ -72,7 +72,7 @@ class Resolvable(object):
         """
         raise NotImplementedError()
 
-    def iter_possible_values(self):
+    def iter_possible_values(self):  # pragma: no cover
         """Iterates over all possible values except ``None`` ones."""
         raise NotImplementedError()
 

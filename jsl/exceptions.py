@@ -130,7 +130,7 @@ class SchemaGenerationException(Exception):
 
     def _format_steps(self):
         if not self.steps:
-            return '-'
+            return ''
         parts = []
         steps = iter(self.steps)
         parts.append(str(next(steps)))
@@ -144,4 +144,8 @@ class SchemaGenerationException(Exception):
         return ''.join(parts)
 
     def __str__(self):
-        return u'{0}\nSteps: {1}'.format(self.message, self._format_steps())
+        rv = unicode(self.message)
+        steps = self._format_steps()
+        if steps:
+            rv += u'\nSteps: {0}'.format(steps)
+        return rv
