@@ -515,7 +515,7 @@ class DocumentField(BaseField):
     def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                        ordered=False, ref_documents=None):
         document_cls = self.document_cls
-        definition_id = document_cls.get_definition_id()
+        definition_id = document_cls.get_definition_id(role=role)
         if ref_documents and document_cls in ref_documents:
             return {}, res_scope.create_ref(definition_id)
         else:

@@ -381,3 +381,9 @@ def test_document():
         a = Var({'role_1': DocumentField('self')})
     assert not A.is_recursive()
     assert A.is_recursive(role='role_1')
+
+    class A(Document):
+        class Options(object):
+            definition_id = Var({'role_1': 'a'})
+    assert A.get_definition_id(role='role_1') == 'a'
+    assert A.get_definition_id(role='role_2').endswith(A.__name__)

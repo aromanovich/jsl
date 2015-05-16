@@ -26,10 +26,9 @@ class Options(object):
     :param definition_id:
         A unique string to be used as a key for this document in the "definitions"
         schema section. If not specified, will be generated from module and class names.
-    :type definition_id: str
-    :param schema_uri:
+    :type definition_id: str or :class:`.Resolvable`
+    :param str schema_uri:
         An URI of the JSON Schema meta-schema.
-    :type schema_uri: str
     :param roles_to_propagate:
         A matcher. If it returns ``True`` for a role, it will be passed to nested
         documents.
@@ -51,8 +50,8 @@ class Options(object):
         self.default = default
         self.enum = enum
         self.id = id
-        self.schema_uri = schema_uri
 
+        self.schema_uri = schema_uri
         self.definition_id = definition_id
         self.roles_to_propagate = construct_matcher(roles_to_propagate or all_)
 
@@ -202,12 +201,14 @@ class Document(with_metaclass(DocumentMeta)):
         return False
 
     @classmethod
-    def get_definition_id(cls):
+    def get_definition_id(cls, role=DEFAULT_ROLE):
         """Returns a unique string to be used as a key for this document
         in the ``"definitions"`` schema section.
         """
-        return (cls._options.definition_id or
-                '{0}.{1}'.format(cls.__module__, cls.__name__))
+        definition_id = cls._options.definition_id
+        if isinstance(definition_id, Resolvable):
+            definition_id = definition_id.resolve(role).value
+        return definition_id or '{0}.{1}'.format(cls.__module__, cls.__name__)
 
     @classmethod
     def resolve_field(cls, field, role=DEFAULT_ROLE):
