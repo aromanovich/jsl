@@ -7,6 +7,7 @@ import sys
 
 IS_PY3 = sys.version_info[0] == 3
 string_types = (str, ) if IS_PY3 else (basestring, )
+text_type = str if IS_PY3 else unicode
 _identity = lambda x: x
 
 

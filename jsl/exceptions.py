@@ -3,7 +3,7 @@ import collections
 import contextlib
 
 from .roles import DEFAULT_ROLE
-from ._compat import implements_to_string
+from ._compat import implements_to_string, text_type
 
 
 @contextlib.contextmanager
@@ -144,7 +144,7 @@ class SchemaGenerationException(Exception):
         return ''.join(parts)
 
     def __str__(self):
-        rv = unicode(self.message)
+        rv = text_type(self.message)
         steps = self._format_steps()
         if steps:
             rv += u'\nSteps: {0}'.format(steps)
