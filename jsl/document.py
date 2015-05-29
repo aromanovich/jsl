@@ -4,7 +4,7 @@ import inspect
 from . import registry
 from .exceptions import processing, DocumentStep
 from .fields import BaseField, DocumentField, DictField
-from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher, Resolvable
+from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher, Resolvable, Resolution
 from .resolutionscope import ResolutionScope
 from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
 
@@ -216,7 +216,11 @@ class Document(with_metaclass(DocumentMeta)):
 
         :raises: :class:`AttributeError`
         """
-        return getattr(cls, field).resolve(role)
+        properties = cls._field.properties
+        if field in properties:
+            return properties[field].resolve(role)
+        else:
+            return Resolution(None, role)
 
     @classmethod
     def resolve_and_iter_fields(cls, role=DEFAULT_ROLE):
@@ -332,7 +336,6 @@ class Document(with_metaclass(DocumentMeta)):
             schema = res_scope.create_ref(definition_id)
 
         return definitions, schema
-
 
 # Remove Document itself from registry
 registry.remove_document(Document.__name__, module=Document.__module__)

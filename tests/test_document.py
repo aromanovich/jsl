@@ -1,6 +1,7 @@
 # coding: utf-8
 import jsonschema
 
+from jsl.roles import Scope, Resolution
 from jsl.document import Document
 from jsl.fields import StringField, IntField, DocumentField, DateTimeField, ArrayField, OneOfField
 from jsl._compat import OrderedDict, iterkeys
@@ -364,3 +365,14 @@ def test_recursive_definitions_4():
         },
     }
     assert s(Z.get_schema()) == s(expected_schema)
+
+
+def test_resolve_field():
+    class X(Document):
+        with Scope('role_1') as s_1:
+            s_1.name = StringField()
+        with Scope('role_2') as s_2:
+            s_2.name = StringField()
+    assert X.resolve_field('name', 'xxx') == Resolution(None, 'xxx')
+    assert X.resolve_field('name', 'role_1') == Resolution(X.s_1.name, 'role_1')
+    assert X.resolve_field('name', 'role_2') == Resolution(X.s_2.name, 'role_2')
