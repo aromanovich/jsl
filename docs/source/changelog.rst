@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.1.1: 2015-05-29
+~~~~~~~~~~~~~~~~~
+
+- Fix :meth:`.Document.resolve_field` method;
+- Allow specifying a resolvable as a ``definition_id`` (see :class:`document options <.Options>`).
+
 0.1.0: 2015-05-13
 ~~~~~~~~~~~~~~~~~
 
