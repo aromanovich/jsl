@@ -15,6 +15,17 @@ def test_base_schema_field():
     assert not f.get_default()
     assert not f.get_enum()
 
+    assert f._update_schema_with_common_fields({}, id='qwerty') == {
+        'id': 'qwerty',
+    }
+
+    f = fields.BaseSchemaField(default=fields.Null)
+    assert not f.get_default()
+    assert f._update_schema_with_common_fields({}, id='qwerty') == {
+        'id': 'qwerty',
+        'default': None,
+    }
+
     f = fields.BaseSchemaField(required=True)
     assert f.required
 

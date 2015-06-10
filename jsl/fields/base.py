@@ -3,7 +3,18 @@ from ..resolutionscope import ResolutionScope
 from ..roles import Resolvable, Resolution, DEFAULT_ROLE
 
 
-__all__ = ['BaseField', 'BaseSchemaField']
+__all__ = ['BaseField', 'BaseSchemaField', 'Null']
+
+
+class NullSentinel:
+    """class object for representing a Null value. Allows specifying fields
+    with a default value of null."""
+
+    def __bool__(self):
+        return False
+    __nonzero__ = __bool__
+
+Null = NullSentinel()
 
 
 class BaseField(Resolvable):
@@ -165,6 +176,8 @@ class BaseSchemaField(BaseField):
             schema['enum'] = list(enum)
         default = self.get_default(role=role)
         if default is not None:
+            if default is Null:
+                default = None
             schema['default'] = default
         return schema
 
