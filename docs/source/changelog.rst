@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.1.2: 2015-06-12
+~~~~~~~~~~~~~~~~~
+
+- Allow specifying a null default value for fields (see :data:`.Null` value) by Nathan Hoad.
+
 0.1.1: 2015-05-29
 ~~~~~~~~~~~~~~~~~
 
@@ -12,7 +17,7 @@ Changelog
 
 - Introduce :ref:`roles <roles>`, :class:`variables <.Var>` and :class:`scopes <.Scope>`;
 - :class:`.NullField` by Igor Davydenko;
-- Almost completely rewritted documentation;
+- Almost completely rewritten documentation;
 - Various minor fixes.
 
 0.0.10: 2015-04-28
