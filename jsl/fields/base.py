@@ -3,18 +3,32 @@ from ..resolutionscope import ResolutionScope
 from ..roles import Resolvable, Resolution, DEFAULT_ROLE
 
 
-__all__ = ['BaseField', 'BaseSchemaField', 'Null']
+__all__ = ['Null', 'BaseField', 'BaseSchemaField']
 
 
-class NullSentinel:
-    """class object for representing a Null value. Allows specifying fields
-    with a default value of null."""
+class NullSentinel(object):
+    """A class which instance represents a null value.
+    Allows specifying fields with a default value of null.
+    """
 
     def __bool__(self):
         return False
+
     __nonzero__ = __bool__
 
+
 Null = NullSentinel()
+"""
+A special value that can be used to set the default value
+of a field to null.
+"""
+
+# make sure nobody creates another Null value
+def _failing_new(*args, **kwargs):
+    raise TypeError('Can\'t create another NullSentinel instance')
+
+NullSentinel.__new__ = staticmethod(_failing_new)
+del _failing_new
 
 
 class BaseField(Resolvable):
@@ -118,7 +132,8 @@ class BaseSchemaField(BaseField):
     :param str id:
         A string to be used as a value of the `"id" keyword`_ of the resulting schema.
     :param default:
-        The default value for this field. May be a callable.
+        The default value for this field. May be :data:`.Null` (a special value
+        to set the default value to null) or a callable.
     :type default: any JSON-representable object, a callable or a :class:`.Resolvable`
     :param enum:
         A list of valid choices. May be a callable.

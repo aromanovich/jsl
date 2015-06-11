@@ -72,6 +72,8 @@ Compound Fields
 Base Classes
 ============
 
+.. autodata:: Null
+
 .. autoclass:: BaseField
    :members:
 

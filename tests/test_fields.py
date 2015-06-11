@@ -2,11 +2,18 @@
 import mock
 import pytest
 
-from jsl import fields
+from jsl import fields, Null
+from jsl.fields.base import NullSentinel
 from jsl.document import Document
 from jsl._compat import OrderedDict
 
 from util import s
+
+
+def test_null_sentinel():
+    assert not Null
+    with pytest.raises(TypeError):
+        NullSentinel()
 
 
 def test_base_schema_field():
