@@ -66,14 +66,14 @@ def test_error():
 
     assert list(e.steps) == [
         DocumentStep(Users, role=role),
-        FieldStep(Users._field, role=role),
+        FieldStep(Users._backend, role=role),
         AttributeStep('properties', role=role),
         ItemStep('users', role=role),
         FieldStep(Users.users, role=role),
         AttributeStep('items', role=role),
         FieldStep(Users.users.items, role=role),
         DocumentStep(User, role=role),
-        FieldStep(User._field, role=role),
+        FieldStep(User._backend, role=role),
         AttributeStep('properties', role=role),
         ItemStep('friends', role=role),
         FieldStep(User.friends, role=role),
@@ -83,9 +83,9 @@ def test_error():
         ItemStep(1, role=role)
     ]
     assert e.message == 'None is not resolvable'
-    assert ("Steps: Users -> DictField.properties['users'] -> "
+    assert ("Steps: Users -> DocumentBackend.properties['users'] -> "
             "ArrayField.items -> DocumentField -> User -> "
-            "DictField.properties['friends'] -> ArrayField.items -> "
+            "DocumentBackend.properties['friends'] -> ArrayField.items -> "
             "ArrayField.items[1]") in str(e)
 
 

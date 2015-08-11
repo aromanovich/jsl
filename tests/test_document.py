@@ -30,7 +30,7 @@ def test_to_schema():
         name = StringField(required=True, min_length=5)
         type = StringField(required=True, enum=['TYPE_1', 'TYPE_2'])
         resources = ArrayField(DocumentField(Resource))
-        created_at = DateTimeField(required=True)
+        created_at = DateTimeField(name='created-at', required=True)
         author = DocumentField(User)
 
     assert Resource.get_definition_id() == 'test_document.Resource'
@@ -42,9 +42,9 @@ def test_to_schema():
         'title': 'Task',
         'description': 'A task.',
         'additionalProperties': False,
-        'required': ['created_at', 'name', 'type'],
+        'required': ['created-at', 'name', 'type'],
         'properties': {
-            'created_at': Task.created_at.get_schema(),
+            'created-at': Task.created_at.get_schema(),
             'type': Task.type.get_schema(),
             'name': Task.name.get_schema(),
             'resources': Task.resources.get_schema(),

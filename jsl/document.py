@@ -56,6 +56,11 @@ class Options(object):
         self.roles_to_propagate = construct_matcher(roles_to_propagate or all_)
 
 
+class DocumentBackend(DictField):
+    def _get_property_key(self, prop, field):
+        return prop if field.name is None else field.name
+
+
 class DocumentMeta(with_metaclass(Prepareable, type)):
     """
     A metaclass for :class:`~.Document`. It's responsible for collecting
@@ -79,7 +84,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
 
         attrs['_fields'] = fields
         attrs['_options'] = options
-        attrs['_field'] = DictField(
+        attrs['_backend'] = DocumentBackend(
             properties=fields,
             pattern_properties=options.pattern_properties,
             additional_properties=options.additional_properties,
@@ -216,7 +221,7 @@ class Document(with_metaclass(DocumentMeta)):
 
         :raises: :class:`AttributeError`
         """
-        properties = cls._field.properties
+        properties = cls._backend.properties
         if field in properties:
             return properties[field].resolve(role)
         else:
@@ -227,7 +232,7 @@ class Document(with_metaclass(DocumentMeta)):
         """The same as :meth:`.iter_fields`, but :class:`resolvables <.Resolvable>`
         are resolved using ``role``.
         """
-        return cls._field.resolve_and_iter_fields(role=role)
+        return cls._backend.resolve_and_iter_fields(role=role)
 
     @classmethod
     def resolve_and_walk(cls, role=DEFAULT_ROLE, through_document_fields=False,
@@ -235,7 +240,7 @@ class Document(with_metaclass(DocumentMeta)):
         """The same as :meth:`.walk`, but :class:`resolvables <.Resolvable>` are
         resolved using ``role``.
         """
-        fields = cls._field.resolve_and_walk(
+        fields = cls._backend.resolve_and_walk(
             role=role, through_document_fields=through_document_fields,
             visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
@@ -246,7 +251,7 @@ class Document(with_metaclass(DocumentMeta)):
         """Iterates over the fields of the document, resolving its
         :class:`resolvables <.Resolvable>` to all possible values.
         """
-        return cls._field.iter_fields()
+        return cls._backend.iter_fields()
 
     @classmethod
     def walk(cls, through_document_fields=False, visited_documents=frozenset()):
@@ -263,7 +268,7 @@ class Document(with_metaclass(DocumentMeta)):
             recursion when ``through_document_field`` is ``True``.
         :returns: iterable of :class:`.BaseField`
         """
-        fields = cls._field.walk(through_document_fields=through_document_fields,
+        fields = cls._backend.walk(through_document_fields=through_document_fields,
                                  visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
         return fields
@@ -327,7 +332,7 @@ class Document(with_metaclass(DocumentMeta)):
             res_scope = res_scope.replace(output=res_scope.base)
 
         with processing(DocumentStep(cls, role=role)):
-            definitions, schema = cls._field.get_definitions_and_schema(
+            definitions, schema = cls._backend.get_definitions_and_schema(
                 role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
 
         if is_recursive:
@@ -336,6 +341,7 @@ class Document(with_metaclass(DocumentMeta)):
             schema = res_scope.create_ref(definition_id)
 
         return definitions, schema
+
 
 # Remove Document itself from registry
 registry.remove_document(Document.__name__, module=Document.__module__)

@@ -1,6 +1,14 @@
 Changelog
 =========
 
+0.1.3: 2015-08-12
+~~~~~~~~~~~~~~~~~
+
+- Add a ``name`` parameter to :class:`.BaseField` which makes it possible to create documents
+  with fields whose names contain symbols that are not allowed in Python variable
+  names (such as hyphen);
+- Introduce :class:`.RefField`.
+
 0.1.2: 2015-06-12
 ~~~~~~~~~~~~~~~~~
 

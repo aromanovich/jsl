@@ -264,11 +264,12 @@ def test_dict_field_to_schema():
     f = fields.DictField(additional_properties=False)
     assert f.get_schema()['additionalProperties'] is False
 
-    # test nested required fields
+    # test nested required fields and make sure that field names
+    # do not override property names
     f = fields.DictField(properties={
-        'a': fields.StringField(required=True),
+        'a': fields.StringField(name='A', required=True),
     }, pattern_properties={
-        'c*': fields.StringField(required=True),
+        'c*': fields.StringField(name='C', required=True),
     })
     definitions, schema = f.get_definitions_and_schema()
     assert s(schema) == s({

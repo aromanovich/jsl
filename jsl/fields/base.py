@@ -23,9 +23,11 @@ A special value that can be used to set the default value
 of a field to null.
 """
 
+
 # make sure nobody creates another Null value
 def _failing_new(*args, **kwargs):
     raise TypeError('Can\'t create another NullSentinel instance')
+
 
 NullSentinel.__new__ = staticmethod(_failing_new)
 del _failing_new
@@ -38,11 +40,18 @@ class BaseField(Resolvable):
     Implements the :class:`.Resolvable` interface.
 
     :param required:
-        If the field is required. Defaults to ``False``.
+        Whether the field is required. Defaults to ``False``.
     :type required: bool or :class:`.Resolvable`
+    :param str name:
+        If specified, used as a key under which the field schema
+        appears in :class:`document <.Document>` schema properties.
+
+        .. versionadded:: 0.1.4
     """
 
-    def __init__(self, required=False):
+    def __init__(self, name=None, required=False):
+        #: Name
+        self.name = name
         #: Whether the field is required.
         self.required = required
 
@@ -88,6 +97,50 @@ class BaseField(Resolvable):
         :rtype: (dict, dict or OrderedDict)
         """
         raise NotImplementedError()
+
+    def iter_fields(self):
+        """Iterates over the nested fields of the document examining all
+        possible values of the occuring :class:`resolvables <.Resolvable>`.
+        """
+        return iter([])
+
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
+        """Iterates recursively over the nested fields, examining all
+        possible values of the occuring :class:`resolvables <.Resolvable>`.
+
+        Visits fields in a DFS order.
+
+        :param bool through_document_fields:
+            If ``True``, walks through nested :class:`.DocumentField` fields.
+        :param set visited_documents:
+            Keeps track of visited :class:`documents <.Document>` to avoid infinite
+            recursion when ``through_document_field`` is ``True``.
+        :returns: iterable of :class:`.BaseField`
+        """
+        yield self
+        for field in self.iter_fields():
+            for field_ in field.walk(through_document_fields=through_document_fields,
+                                     visited_documents=visited_documents):
+                yield field_
+
+    def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
+        """The same as :meth:`.iter_fields`, but :class:`resolvables <.Resolvable>`
+        are resolved using ``role``.
+        """
+        return iter([])
+
+    def resolve_and_walk(self, role=DEFAULT_ROLE, through_document_fields=False,
+                         visited_documents=frozenset()):
+        """The same as :meth:`.walk`, but :class:`resolvables <.Resolvable>` are
+        resolved using ``role``.
+        """
+        yield self
+        for field in self.resolve_and_iter_fields(role=role):
+            field, field_role = field.resolve(role)
+            for field_ in field.resolve_and_walk(role=field_role,
+                                                 through_document_fields=through_document_fields,
+                                                 visited_documents=visited_documents):
+                yield field_
 
     def get_schema(self, ordered=False, role=DEFAULT_ROLE):
         """Returns a JSON schema (draft v4) of the field.
@@ -195,47 +248,3 @@ class BaseSchemaField(BaseField):
                 default = None
             schema['default'] = default
         return schema
-
-    def iter_fields(self):
-        """Iterates over the nested fields of the document examining all
-        possible values of the occuring :class:`resolvables <.Resolvable>`.
-        """
-        return iter([])
-
-    def walk(self, through_document_fields=False, visited_documents=frozenset()):
-        """Iterates recursively over the nested fields, examining all
-        possible values of the occuring :class:`resolvables <.Resolvable>`.
-
-        Visits fields in a DFS order.
-
-        :param bool through_document_fields:
-            If ``True``, walks through nested :class:`.DocumentField` fields.
-        :param set visited_documents:
-            Keeps track of visited :class:`documents <.Document>` to avoid infinite
-            recursion when ``through_document_field`` is ``True``.
-        :returns: iterable of :class:`.BaseField`
-        """
-        yield self
-        for field in self.iter_fields():
-            for field_ in field.walk(through_document_fields=through_document_fields,
-                                     visited_documents=visited_documents):
-                yield field_
-
-    def resolve_and_iter_fields(self, role=DEFAULT_ROLE):
-        """The same as :meth:`.iter_fields`, but :class:`resolvables <.Resolvable>`
-        are resolved using ``role``.
-        """
-        return iter([])
-
-    def resolve_and_walk(self, role=DEFAULT_ROLE, through_document_fields=False,
-                         visited_documents=frozenset()):
-        """The same as :meth:`.walk`, but :class:`resolvables <.Resolvable>` are
-        resolved using ``role``.
-        """
-        yield self
-        for field in self.resolve_and_iter_fields(role=role):
-            field, field_role = field.resolve(role)
-            for field_ in field.resolve_and_walk(role=field_role,
-                                                 through_document_fields=through_document_fields,
-                                                 visited_documents=visited_documents):
-                yield field_

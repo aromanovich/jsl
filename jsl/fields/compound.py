@@ -187,8 +187,14 @@ class DictField(BaseSchemaField):
         self.max_properties = max_properties  #:
         super(DictField, self).__init__(**kwargs)
 
-    def _process_properties(self, properties, res_scope, ordered=False,
+    def _process_properties(self, attr, properties, res_scope, ordered=False,
                             ref_documents=None, role=DEFAULT_ROLE):
+        if attr == 'properties':
+            key_getter = self._get_property_key
+        elif attr == 'pattern_properties':
+            key_getter = self._get_pattern_property_key
+        else:
+            raise ValueError('attr must be either "properties" or "pattern_properties"')  # pragma: no cover
         nested_definitions = {}
         schema = OrderedDict() if ordered else {}
         required = []
@@ -202,9 +208,10 @@ class DictField(BaseSchemaField):
                 field_definitions, field_schema = field.get_definitions_and_schema(
                     role=field_role, res_scope=res_scope,
                     ordered=ordered, ref_documents=ref_documents)
+                key = key_getter(prop, field)
                 if field.resolve_attr('required', field_role).value:
-                    required.append(prop)
-                schema[prop] = field_schema
+                    required.append(key)
+                schema[key] = field_schema
                 nested_definitions.update(field_definitions)
         return nested_definitions, required, schema
 
@@ -214,20 +221,22 @@ class DictField(BaseSchemaField):
             return self._do_get_definitions_and_schema(
                 role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
 
-    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
-                                       ordered=False, ref_documents=None):
-        id, res_scope = res_scope.alter(self.id)
-        schema = (OrderedDict if ordered else dict)(type='object')
-        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
-        nested_definitions = {}
+    def _get_property_key(self, prop, field):
+        return prop
 
+    def _get_pattern_property_key(self, prop, field):
+        return prop
+
+    def _update_schema_with_processed_properties(self, schema, nested_definitions,
+                                                 role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                                 ordered=False, ref_documents=None):
         with processing(AttributeStep('properties', role=role)):
             properties, properties_role = self.resolve_attr('properties', role)
             if properties is not None:
                 if not isinstance(properties, dict):
                     raise SchemaGenerationException(u'{0} is not a dict'.format(properties))
                 properties_definitions, properties_required, properties_schema = \
-                    self._process_properties(properties, res_scope,
+                    self._process_properties('properties', properties, res_scope,
                                              ordered=ordered, ref_documents=ref_documents,
                                              role=properties_role)
                 schema['properties'] = properties_schema
@@ -235,24 +244,30 @@ class DictField(BaseSchemaField):
                     schema['required'] = properties_required
                 nested_definitions.update(properties_definitions)
 
+    def _update_schema_with_processed_pattern_properties(self, schema, nested_definitions,
+                                                         role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                                         ordered=False, ref_documents=None):
         with processing(AttributeStep('pattern_properties', role=role)):
             pattern_properties, pattern_properties_role = \
                 self.resolve_attr('pattern_properties', role)
             if pattern_properties is not None:
                 if not isinstance(pattern_properties, dict):
-                    raise SchemaGenerationException(u'{0} is not a dict.'.format(pattern_properties))
+                    raise SchemaGenerationException(u'{0} is not a dict'.format(pattern_properties))
                 for key in iterkeys(pattern_properties):
                     try:
                         validate_regex(key)
                     except ValueError as e:
                         raise SchemaGenerationException(u'Invalid regexp: {0}'.format(e))
                 properties_definitions, _, properties_schema = self._process_properties(
-                    pattern_properties, res_scope,
+                    'pattern_properties', pattern_properties, res_scope,
                     ordered=ordered, ref_documents=ref_documents,
                     role=pattern_properties_role)
                 schema['patternProperties'] = properties_schema
                 nested_definitions.update(properties_definitions)
 
+    def _update_schema_with_processed_additional_properties(self, schema, nested_definitions,
+                                                            role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                                            ordered=False, ref_documents=None):
         with processing(AttributeStep('additional_properties', role=role)):
             additional_properties, additional_properties_role = \
                 self.resolve_attr('additional_properties', role)
@@ -269,6 +284,21 @@ class DictField(BaseSchemaField):
                 else:
                     raise SchemaGenerationException(
                         u'{0} is not a BaseField or a boolean'.format(additional_properties))
+
+    def _do_get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                       ordered=False, ref_documents=None):
+        id, res_scope = res_scope.alter(self.id)
+        schema = (OrderedDict if ordered else dict)(type='object')
+        schema = self._update_schema_with_common_fields(schema, id=id, role=role)
+        nested_definitions = {}
+
+        for f in (
+                self._update_schema_with_processed_properties,
+                self._update_schema_with_processed_pattern_properties,
+                self._update_schema_with_processed_additional_properties,
+        ):
+            f(schema, nested_definitions, role=role, res_scope=res_scope,
+              ordered=ordered, ref_documents=ref_documents)
 
         min_properties = self.resolve_attr('min_properties', role).value
         if min_properties is not None:
@@ -563,7 +593,7 @@ class RefField(BaseField):
     """
 
     def __init__(self, pointer, **kwargs):
-        self.pointer = pointer
+        self.pointer = pointer  #:
         super(RefField, self).__init__(**kwargs)
 
     def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
