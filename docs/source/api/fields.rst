@@ -51,6 +51,9 @@ Compound Fields
 .. autoclass:: DocumentField
     :members:
 
+.. autoclass:: RefField
+    :members:
+
 .. autoclass:: ArrayField
     :members:
 

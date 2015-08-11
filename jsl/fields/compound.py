@@ -12,7 +12,7 @@ from .util import validate_regex
 
 __all__ = [
     'ArrayField', 'DictField', 'OneOfField', 'AnyOfField', 'AllOfField',
-    'NotField', 'DocumentField', 'RECURSIVE_REFERENCE_CONSTANT'
+    'NotField', 'DocumentField', 'RefField', 'RECURSIVE_REFERENCE_CONSTANT'
 ]
 
 RECURSIVE_REFERENCE_CONSTANT = 'self'
@@ -551,3 +551,28 @@ class DocumentField(BaseField):
                     document_cls = registry.get_document(document_cls,
                                                          module=self.owner_cls.__module__)
         return document_cls
+
+
+class RefField(BaseField):
+    """A reference.
+
+    :param str pointer:
+        A `JSON pointer`_.
+
+        .. _JSON pointer: http://tools.ietf.org/html/draft-pbryan-zyp-json-pointer-02
+    """
+
+    def __init__(self, pointer, **kwargs):
+        self.pointer = pointer
+        super(RefField, self).__init__(**kwargs)
+
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                   ordered=False, ref_documents=None):
+        with processing(AttributeStep('pointer', role=role)):
+            pointer, _ = self.resolve_attr('pointer', role)
+            if not isinstance(pointer, string_types):
+                raise SchemaGenerationException(u'{0} is not a string.'.format(pointer))
+        return {}, {'$ref': pointer}
+
+    def walk(self, through_document_fields=False, visited_documents=frozenset()):
+        yield self

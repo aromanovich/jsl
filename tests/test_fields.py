@@ -400,3 +400,9 @@ def test_not_field():
 def test_null_field():
     f = fields.NullField()
     assert s(f.get_schema()) == {'type': 'null'}
+
+
+def test_ref_field():
+    pointer = '#/definitions/User'
+    f = fields.RefField(pointer=pointer)
+    assert f.get_definitions_and_schema() == ({}, {'$ref': pointer})
