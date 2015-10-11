@@ -6,6 +6,10 @@ Document
 
 .. module:: jsl.document
 
+.. autodata:: ALL_OF
+
+.. autodata:: INLINE
+
 .. autoclass:: Options
     :members:
 

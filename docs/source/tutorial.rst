@@ -323,6 +323,97 @@ Now ``User.get_schema(ordered=True, role=DB_ROLE)`` returns the following schema
         "required": ["id", "login", "messages", "version"]
     }
 
+.. _inheritance:
+
+Document Inheritance
+--------------------
+There are two inheritance modes available in JSL: **inline** and **all-of**.
+
+In the inline mode (used by default), a schema of the child document contains a copy
+of its parent's fields.
+
+In the all-of mode a schema of the child document is an allOf validator that contains references
+to all parent schemas along with the schema that defines the child's fields.
+
+The inheritance mode can be set using the ``inheritance_mode`` document :class:`option <.Options>`.
+
+Example
++++++++
+
+Suppose we have a `Shape` document::
+
+    class Shape(Base):
+        class Options(object):
+            definition_id = 'shape'
+
+        color = StringField()
+
+The table below shows the difference between inline and all-of modes:
+
+.. list-table::
+    :widths: 50 50
+    :header-rows: 1
+
+    * - Inline
+      - All-of
+    * - ::
+
+            class Circle(Shape):
+                class Options(object):
+                    definition_id = 'circle'
+                    # inheritance_mode = INLINE
+
+                radius = NumberField()
+
+      - ::
+
+            class Circle(Shape):
+                class Options(object):
+                    definition_id = 'circle'
+                    inheritance_mode = ALL_OF
+
+                radius = NumberField()
+    * - Resulting schema::
+
+            {
+                "type": "object",
+                "properties": {
+                    "color": {
+                        "type": "string"
+                    },
+                    "radius": {
+                        "type": "number"
+                    }
+                }
+            }
+
+      - Resulting schema::
+
+            {
+                "definitions": {
+                    "shape": {
+                        "type": "object",
+                        "properties": {
+                            "color": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                },
+                "allOf": [
+                    {
+                        "$ref": "#/definitions/shape"
+                    },
+                    {
+                        "type": "object",
+                        "properties": {
+                            "radius": {
+                                "type": "number"
+                            }
+                        }
+                    }
+                ]
+            }
 
 More Examples
 -------------

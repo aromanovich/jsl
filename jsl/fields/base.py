@@ -46,7 +46,7 @@ class BaseField(Resolvable):
         If specified, used as a key under which the field schema
         appears in :class:`document <.Document>` schema properties.
 
-        .. versionadded:: 0.1.4
+        .. versionadded:: 0.1.3
     """
 
     def __init__(self, name=None, required=False):

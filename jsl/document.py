@@ -15,6 +15,13 @@ def _set_owner_to_document_fields(cls):
             field.owner_cls = cls
 
 
+ALL_OF = 'all_of'
+"""All-of inheritance mode"""
+
+INLINE = 'inline'
+"""Inline (default) inheritance mode"""
+
+
 class Options(object):
     """
     A container for options.
@@ -33,6 +40,10 @@ class Options(object):
         A matcher. If it returns ``True`` for a role, it will be passed to nested
         documents.
     :type roles_to_propagate: callable, string or iterable
+    :param str inheritance_mode:
+        An :ref:`inheritance mode <inheritance>`: :data:`INLINE` (default) or :data:`ALL_OF`
+
+        .. versionadded:: 0.1.4
     """
 
     def __init__(self, additional_properties=False, pattern_properties=None,
@@ -40,7 +51,8 @@ class Options(object):
                  title=None, description=None,
                  default=None, enum=None,
                  id='', schema_uri='http://json-schema.org/draft-04/schema#',
-                 definition_id=None, roles_to_propagate=None):
+                 definition_id=None, roles_to_propagate=None,
+                 inheritance_mode=INLINE):
         self.pattern_properties = pattern_properties
         self.additional_properties = additional_properties
         self.min_properties = min_properties
@@ -54,6 +66,11 @@ class Options(object):
         self.schema_uri = schema_uri
         self.definition_id = definition_id
         self.roles_to_propagate = construct_matcher(roles_to_propagate or all_)
+        if inheritance_mode not in (ALL_OF, INLINE):
+            raise ValueError(
+                'Unknown inheritance mode: {!r}. '
+                'Must be one of the following: {!r}'.format(inheritance_mode, [INLINE, ALL_OF]))
+        self.inheritance_mode = inheritance_mode
 
 
 class DocumentBackend(DictField):
@@ -78,11 +95,22 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
         return OrderedDict()
 
     def __new__(mcs, name, bases, attrs):
-        fields = mcs.collect_fields(bases, attrs)
         options_data = mcs.collect_options(bases, attrs)
         options = mcs.create_options(options_data)
 
+        if options.inheritance_mode == INLINE:
+            fields = mcs.collect_fields(bases, attrs)
+            parent_documents = set()
+            for base in bases:
+                if issubclass(base, Document) and base is not Document:
+                    parent_documents.update(base._parent_documents)
+        elif options.inheritance_mode == ALL_OF:
+            fields = mcs.collect_fields([], attrs)
+            parent_documents = [base for base in bases
+                                if issubclass(base, Document) and base is not Document]
+
         attrs['_fields'] = fields
+        attrs['_parent_documents'] = sorted(parent_documents)
         attrs['_options'] = options
         attrs['_backend'] = DocumentBackend(
             properties=fields,
@@ -189,6 +217,9 @@ class Document(with_metaclass(DocumentMeta)):
                 title = 'User'
                 description = 'A person who uses a computer or network service.'
             login = StringField(required=True)
+
+    .. note::
+        A subclass inherits options of its parent documents.
     """
 
     @classmethod
@@ -326,7 +357,7 @@ class Document(with_metaclass(DocumentMeta)):
         """
         is_recursive = cls.is_recursive()
 
-        if is_recursive:
+        if is_recursive: # or all_of_inheritance:
             ref_documents = set(ref_documents) if ref_documents else set()
             ref_documents.add(cls)
             res_scope = res_scope.replace(output=res_scope.base)
@@ -334,6 +365,18 @@ class Document(with_metaclass(DocumentMeta)):
         with processing(DocumentStep(cls, role=role)):
             definitions, schema = cls._backend.get_definitions_and_schema(
                 role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+
+        if cls._parent_documents:
+            all_of = []
+            for parent_document in cls._parent_documents:
+                parent_definitions, parent_schema = parent_document.get_definitions_and_schema(
+                    role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+                parent_definition_id = parent_document.get_definition_id()
+                definitions.update(parent_definitions)
+                definitions[parent_definition_id] = parent_schema
+                all_of.append(res_scope.create_ref(parent_definition_id))
+            all_of.append(schema)
+            schema = {'allOf': all_of}
 
         if is_recursive:
             definition_id = cls.get_definition_id()

@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.1.4: 2015-10-09
+~~~~~~~~~~~~~~~~~
+
+- Introduce :ref:`inheritance modes <inheritance>`.
+
 0.1.3: 2015-08-12
 ~~~~~~~~~~~~~~~~~
 
