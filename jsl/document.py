@@ -68,8 +68,8 @@ class Options(object):
         self.roles_to_propagate = construct_matcher(roles_to_propagate or all_)
         if inheritance_mode not in (ALL_OF, INLINE):
             raise ValueError(
-                'Unknown inheritance mode: {!r}. '
-                'Must be one of the following: {!r}'.format(inheritance_mode, [INLINE, ALL_OF]))
+                'Unknown inheritance mode: {0!r}. '
+                'Must be one of the following: {1!r}'.format(inheritance_mode, [INLINE, ALL_OF]))
         self.inheritance_mode = inheritance_mode
 
 
