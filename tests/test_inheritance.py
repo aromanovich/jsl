@@ -104,8 +104,8 @@ def test_inheritance_1():
             },
             'sector': {
                 'allOf': [
-                    {'$ref': '#/definitions/shape'},
                     {'$ref': '#/definitions/button'},
+                    {'$ref': '#/definitions/shape'},
                     {
                         'type': 'object',
                         'title': 'Sector',

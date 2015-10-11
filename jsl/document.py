@@ -110,7 +110,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
                                 if issubclass(base, Document) and base is not Document]
 
         attrs['_fields'] = fields
-        attrs['_parent_documents'] = sorted(parent_documents)
+        attrs['_parent_documents'] = sorted(parent_documents, key=lambda d: d.get_definition_id())
         attrs['_options'] = options
         attrs['_backend'] = DocumentBackend(
             properties=fields,
