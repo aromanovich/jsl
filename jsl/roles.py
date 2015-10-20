@@ -70,11 +70,11 @@ class Resolvable(object):
         :param str role: A role.
         :returns: A :class:`resolution <.Resolution>`.
         """
-        raise NotImplementedError()
+        raise NotImplementedError
 
     def iter_possible_values(self):  # pragma: no cover
         """Iterates over all possible values except ``None`` ones."""
-        raise NotImplementedError()
+        raise NotImplementedError
 
 
 class Var(Resolvable):

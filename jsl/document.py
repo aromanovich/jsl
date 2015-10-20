@@ -5,7 +5,7 @@ from . import registry
 from .exceptions import processing, DocumentStep
 from .fields import BaseField, DocumentField, DictField
 from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher, Resolvable, Resolution
-from .resolutionscope import ResolutionScope
+from .resolutionscope import ResolutionScope, EMPTY_SCOPE
 from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
 
 
@@ -332,7 +332,7 @@ class Document(with_metaclass(DocumentMeta)):
         return rv
 
     @classmethod
-    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(cls, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):
         """Returns a tuple of two elements.
 

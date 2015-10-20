@@ -15,8 +15,8 @@ __all__ = [
 class BooleanField(BaseSchemaField):
     """A boolean field."""
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
-                                   ordered=False, ref_documents=None):
+    def _get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='boolean')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
@@ -51,8 +51,8 @@ class StringField(BaseSchemaField):
         self.max_length = max_length  #:
         super(StringField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
-                                   ordered=False, ref_documents=None):
+    def _get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='string')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
@@ -122,8 +122,8 @@ class NumberField(BaseSchemaField):
         self.exclusive_maximum = exclusive_maximum  #:
         super(NumberField, self).__init__(**kwargs)
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
-                                   ordered=False, ref_documents=None):
+    def _get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type=self._NUMBER_TYPE)
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)
@@ -153,8 +153,8 @@ class IntField(NumberField):
 class NullField(BaseSchemaField):
     """A null field."""
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
-                                   ordered=False, ref_documents=None):
+    def _get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                    ordered=False, ref_documents=None):
         id, res_scope = res_scope.alter(self.id)
         schema = (OrderedDict if ordered else dict)(type='null')
         schema = self._update_schema_with_common_fields(schema, id=id, role=role)

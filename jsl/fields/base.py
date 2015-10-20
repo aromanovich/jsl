@@ -1,5 +1,6 @@
 # coding: utf-8
-from ..resolutionscope import ResolutionScope
+from ..exceptions import processing, FieldStep
+from ..resolutionscope import EMPTY_SCOPE
 from ..roles import Resolvable, Resolution, DEFAULT_ROLE
 
 
@@ -49,11 +50,12 @@ class BaseField(Resolvable):
         .. versionadded:: 0.1.3
     """
 
-    def __init__(self, name=None, required=False):
+    def __init__(self, name=None, required=False, **kwargs):
         #: Name
         self.name = name
         #: Whether the field is required.
         self.required = required
+        self._kwargs = kwargs
 
     def resolve(self, role):
         """
@@ -72,7 +74,7 @@ class BaseField(Resolvable):
         """
         yield self
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
+    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
                                    ordered=False, ref_documents=None):  # pragma: no cover
         """Returns a tuple of two elements.
 
@@ -96,7 +98,18 @@ class BaseField(Resolvable):
         :raises: :class:`.SchemaGenerationException`
         :rtype: (dict, dict or OrderedDict)
         """
-        raise NotImplementedError()
+        with processing(FieldStep(self, role=role)):
+            definitions, schema = self._get_definitions_and_schema(
+                role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
+        return definitions, self._extend_schema(schema, role=role, res_scope=res_scope,
+                                                ordered=ordered, ref_documents=ref_documents)
+
+    def _extend_schema(self, schema, role, res_scope, ordered, ref_documents):
+        return schema
+
+    def _get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                    ordered=False, ref_documents=None):  # pragma: no cover
+        raise NotImplementedError
 
     def iter_fields(self):
         """Iterates over the nested fields of the document examining all
@@ -226,9 +239,9 @@ class BaseSchemaField(BaseField):
             default = default()
         return default
 
-    def get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=ResolutionScope(),
-                                   ordered=False, ref_documents=None):  # pragma: no cover
-        raise NotImplementedError()
+    def _get_definitions_and_schema(self, role=DEFAULT_ROLE, res_scope=EMPTY_SCOPE,
+                                    ordered=False, ref_documents=None):  # pragma: no cover
+        raise NotImplementedError
 
     def _update_schema_with_common_fields(self, schema, id='', role=DEFAULT_ROLE):
         if id:
