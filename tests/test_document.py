@@ -3,7 +3,9 @@ import jsonschema
 
 from jsl.roles import Scope, Resolution
 from jsl.document import Document
-from jsl.fields import StringField, IntField, DocumentField, DateTimeField, ArrayField, OneOfField
+from jsl.fields import (
+    RECURSIVE_REFERENCE_CONSTANT, StringField, IntField, DocumentField,
+    DateTimeField, ArrayField, OneOfField)
 from jsl._compat import OrderedDict, iterkeys
 
 from util import s
@@ -79,6 +81,7 @@ def test_document_fields_order():
         y = StringField()
         d = StringField()
         e = StringField()
+
     order = ''.join(Letters.get_schema(ordered=True)['properties'])
     expected_order = 'zxabcyde'
     assert order == expected_order
@@ -88,12 +91,14 @@ def test_recursive_definitions_1():
     class A(Document):
         class Options(object):
             id = 'http://example.com/schema/'
+
         id = StringField()
         b = DocumentField('B')
 
     class B(Document):
         class Options(object):
             id = 'segment/'
+
         a = DocumentField(A)
         b = DocumentField('B')
         c = DocumentField('C')
@@ -101,12 +106,14 @@ def test_recursive_definitions_1():
     class C(Document):
         class Options(object):
             id = 'segment2/'
+
         a = DocumentField(A)
         d = DocumentField('D')
 
     class D(Document):
         class Options(object):
             id = '#hash'
+
         id = StringField()
 
     expected_schema = {
@@ -173,16 +180,19 @@ def test_recursive_definitions_2():
     class A(Document):
         class Options(object):
             id = 'http://example.com/schema'
+
         b = DocumentField('B')
 
     class B(Document):
         class Options(object):
             id = 'http://aromanovich.ru/schema_1'
+
         c = DocumentField('C')
 
     class C(Document):
         class Options(object):
             id = 'schema_2'
+
         d = DocumentField('D')
         a = DocumentField(A)
 
@@ -367,12 +377,37 @@ def test_recursive_definitions_4():
     assert s(Z.get_schema()) == s(expected_schema)
 
 
+def test_recursive_definitions_5():
+    # regression test for https://github.com/aromanovich/jsl/issues/14
+    class Test(Document):
+        class Options(object):
+            definition_id = 'test'
+        with Scope('test') as test:
+            test.field = DocumentField(RECURSIVE_REFERENCE_CONSTANT)
+
+    assert s(Test.get_schema(role='test')) == s({
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        '$ref': '#/definitions/test',
+        'definitions': {
+            'test': {
+                'additionalProperties': False, 'type': 'object',
+                'properties': {
+                    'field': {
+                        '$ref': '#/definitions/test'
+                    }
+                }
+            }
+        },
+    })
+
+
 def test_resolve_field():
     class X(Document):
         with Scope('role_1') as s_1:
             s_1.name = StringField()
         with Scope('role_2') as s_2:
             s_2.name = StringField()
+
     assert X.resolve_field('name', 'xxx') == Resolution(None, 'xxx')
     assert X.resolve_field('name', 'role_1') == Resolution(X.s_1.name, 'role_1')
     assert X.resolve_field('name', 'role_2') == Resolution(X.s_2.name, 'role_2')

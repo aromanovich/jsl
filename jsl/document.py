@@ -355,9 +355,9 @@ class Document(with_metaclass(DocumentMeta)):
         :raises: :class:`~.SchemaGenerationException`
         :rtype: (dict, dict or OrderedDict)
         """
-        is_recursive = cls.is_recursive()
+        is_recursive = cls.is_recursive(role=role)
 
-        if is_recursive: # or all_of_inheritance:
+        if is_recursive:
             ref_documents = set(ref_documents) if ref_documents else set()
             ref_documents.add(cls)
             res_scope = res_scope.replace(output=res_scope.base)

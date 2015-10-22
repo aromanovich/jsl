@@ -4,7 +4,7 @@ import itertools
 from .. import registry
 from ..roles import DEFAULT_ROLE, Resolvable
 from ..resolutionscope import EMPTY_SCOPE
-from ..exceptions import SchemaGenerationException, processing, FieldStep, AttributeStep, ItemStep
+from ..exceptions import SchemaGenerationException, processing, AttributeStep, ItemStep
 from .._compat import iteritems, iterkeys, itervalues, string_types, OrderedDict
 from .base import BaseSchemaField, BaseField
 from .util import validate_regex
