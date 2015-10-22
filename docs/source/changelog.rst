@@ -1,6 +1,12 @@
 Changelog
 =========
 
+0.1.5: 2015-10-22
+~~~~~~~~~~~~~~~~~
+
+- Fix a bug when using RECURSIVE_REFERENCE_CONSTANT under a scope caused
+  infinite recursion (issue `#14`_).
+
 0.1.4: 2015-10-11
 ~~~~~~~~~~~~~~~~~
 
@@ -63,3 +69,4 @@ Changelog
 - Python 3 support by Igor Davydenko.
 
 .. _id: http://tools.ietf.org/html/draft-zyp-json-schema-04#section-7.2
+.. _#14: https://github.com/aromanovich/jsl/issues/14
