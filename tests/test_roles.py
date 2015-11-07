@@ -1,9 +1,10 @@
 # coding: utf-8
 import pytest
 
-from jsl import (Document, BaseSchemaField, StringField, ArrayField, DocumentField, IntField,
-                 DateTimeField, NumberField, DictField, NotField,
-                 AllOfField, AnyOfField, OneOfField)
+from jsl import (Document, BaseSchemaField, StringField, ArrayField,
+                 DocumentField, IntField, DateTimeField, NumberField,
+                 DictField, NotField, AllOfField, AnyOfField, OneOfField,
+                 DEFAULT_ROLE)
 from jsl.roles import Var, Scope, not_, Resolution
 from jsl.exceptions import SchemaGenerationException
 
@@ -79,15 +80,14 @@ def test_scopes_basics():
         not_(*args): True
     }, default=False)
 
-    when = lambda *args: Var({
-        not_(*args): False
-    }, default=True)
-
     class Message(Document):
         with Scope(DB_ROLE) as db:
             db.uuid = StringField(required=True)
         created_at = IntField(required=when_not(PARTIAL_RESPONSE_ROLE, REQUEST_ROLE))
         text = StringField(required=when_not(PARTIAL_RESPONSE_ROLE))
+        field_that_is_never_present = Var({
+            'NEVER': StringField(required=True)
+        })
 
     class User(Document):
         class Options(object):
@@ -98,8 +98,20 @@ def test_scopes_basics():
             db.version = StringField(required=True)
         with Scope(lambda r: r.startswith(RESPONSE_ROLE) or r == REQUEST_ROLE) as response:
             response.id = StringField(required=when_not(PARTIAL_RESPONSE_ROLE))
-        with Scope(not_(REQUEST_ROLE)) as request:
-            request.messages = ArrayField(DocumentField(Message), required=when_not(PARTIAL_RESPONSE_ROLE))
+        with Scope(not_(REQUEST_ROLE)) as not_request:
+            not_request.messages = ArrayField(DocumentField(Message), required=when_not(PARTIAL_RESPONSE_ROLE))
+
+    resolution = Message.resolve_field('text')
+    assert resolution.value == Message.text
+    assert resolution.role == DEFAULT_ROLE
+
+    resolution = Message.resolve_field('field_that_is_never_present')
+    assert resolution.value is None
+    assert resolution.role == DEFAULT_ROLE
+
+    resolution = Message.resolve_field('non-existent')
+    assert resolution.value is None
+    assert resolution.role == DEFAULT_ROLE
 
     schema = User.get_schema(role=DB_ROLE)
     expected_required = sorted(['_id', 'version', 'messages'])
@@ -122,6 +134,11 @@ def test_scopes_basics():
     }
     assert sorted(schema['required']) == expected_required
     assert sort_required_keys(schema['properties']) == sort_required_keys(expected_properties)
+    assert dict(User.resolve_and_iter_fields(DB_ROLE)) == {
+        '_id': User.db._id,
+        'version': User.db.version,
+        'messages': User.not_request.messages,
+    }
 
     schema = User.get_schema(role=REQUEST_ROLE)
     expected_required = sorted(['id'])
@@ -130,6 +147,9 @@ def test_scopes_basics():
     }
     assert sorted(schema['required']) == expected_required
     assert sort_required_keys(schema['properties']) == sort_required_keys(expected_properties)
+    assert dict(User.resolve_and_iter_fields(REQUEST_ROLE)) == {
+        'id': User.response.id,
+    }
 
     schema = User.get_schema(role=RESPONSE_ROLE)
     expected_required = sorted(['id', 'messages'])
@@ -150,6 +170,10 @@ def test_scopes_basics():
     }
     assert sorted(schema['required']) == expected_required
     assert sort_required_keys(schema['properties']) == sort_required_keys(expected_properties)
+    assert dict(User.resolve_and_iter_fields(RESPONSE_ROLE)) == {
+        'id': User.response.id,
+        'messages': User.not_request.messages,
+    }
 
     schema = User.get_schema(role=PARTIAL_RESPONSE_ROLE)
     expected_properties = {
@@ -169,6 +193,10 @@ def test_scopes_basics():
     }
     assert 'required' not in schema
     assert sort_required_keys(schema['properties']) == sort_required_keys(expected_properties)
+    assert dict(Message.resolve_and_iter_fields(PARTIAL_RESPONSE_ROLE)) == {
+        'created_at': Message.created_at,
+        'text': Message.text,
+    }
 
 
 def test_base_field():

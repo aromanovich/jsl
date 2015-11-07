@@ -6,7 +6,7 @@ from .exceptions import processing, DocumentStep
 from .fields import BaseField, DocumentField, DictField
 from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher, Resolvable, Resolution
 from .resolutionscope import ResolutionScope, EMPTY_SCOPE
-from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
+from ._compat import iteritems, iterkeys, itervalues, with_metaclass, OrderedDict, Prepareable
 
 
 def _set_owner_to_document_fields(cls):
@@ -76,6 +76,12 @@ class Options(object):
 class DocumentBackend(DictField):
     def _get_property_key(self, prop, field):
         return prop if field.name is None else field.name
+
+    def resolve_and_iter_properties(self, role=DEFAULT_ROLE):
+        for name, field in iteritems(self.properties):
+            field = field.resolve(role).value
+            if isinstance(field, BaseField):
+                yield name, field
 
 
 class DocumentMeta(with_metaclass(Prepareable, type)):
@@ -260,10 +266,16 @@ class Document(with_metaclass(DocumentMeta)):
 
     @classmethod
     def resolve_and_iter_fields(cls, role=DEFAULT_ROLE):
-        """The same as :meth:`.iter_fields`, but :class:`resolvables <.Resolvable>`
-        are resolved using ``role``.
+        """Resolves each resolvable attribute of a document using the specified role
+        and yields a tuple of (attribute name, field) in case the result is a JSL field.
+
+        .. versionchanged:: 0.2
+            The method has been changed to iterate only over fields that attached as attributes,
+            and yield tuples instead of plain :class:`.BaseField`.
+
+        :rtype: iterable of (str,  :class:`.BaseField`)
         """
-        return cls._backend.resolve_and_iter_fields(role=role)
+        return cls._backend.resolve_and_iter_properties(role=role)
 
     @classmethod
     def resolve_and_walk(cls, role=DEFAULT_ROLE, through_document_fields=False,
@@ -353,7 +365,7 @@ class Document(with_metaclass(DocumentMeta)):
             pointing to it will be resolved as a reference: ``{"$ref": "#/definitions/..."}``.
             Note: resulting definitions will not contain schema for this document.
         :raises: :class:`~.SchemaGenerationException`
-        :rtype: (dict, dict or OrderedDict)
+        :rtype: (dict or OrderedDict)
         """
         is_recursive = cls.is_recursive(role=role)
 
