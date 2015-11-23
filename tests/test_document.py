@@ -258,7 +258,7 @@ def test_recursive_definitions_3():
 
     class A(Document):
         name = StringField()
-        a = DocumentField('A')
+        a = DocumentField('A', as_ref=True)
 
     class B(Document):
         c = DocumentField('C')
@@ -307,11 +307,11 @@ def test_recursive_definitions_3():
 
 def test_recursive_definitions_4():
     class Main(Document):
-        a = DocumentField('A')
+        a = DocumentField('A', as_ref=True)
 
     class A(Document):
         name = StringField()
-        b = DocumentField('B')
+        b = DocumentField('B', as_ref=True)
 
     class B(Document):
         c = DocumentField(Main)
@@ -398,6 +398,47 @@ def test_recursive_definitions_5():
                 }
             }
         },
+    })
+
+
+def test_recursive_definitions_6():
+    # regression test for https://github.com/aromanovich/jsl/issues/16
+
+    class Children(Document):
+        class Options(object):
+            definition_id = 'children'
+        children = OneOfField([
+            DocumentField('A',),
+        ])
+
+    class A(Document):
+        class Options(object):
+            definition_id = 'a'
+        derived_from = DocumentField(Children, as_ref=True)
+
+    assert s(A.get_schema()) == s({
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'definitions': {
+            'a': {
+                'type': 'object',
+                'properties': {
+                    'derived_from': {
+                        '$ref': '#/definitions/children',
+                    },
+                },
+                'additionalProperties': False,
+            },
+            'children': {
+                'type': 'object',
+                'properties': {
+                    'children': {
+                        'oneOf': [{'$ref': '#/definitions/a'}],
+                    },
+                },
+                'additionalProperties': False,
+            },
+        },
+        '$ref': '#/definitions/a',
     })
 
 

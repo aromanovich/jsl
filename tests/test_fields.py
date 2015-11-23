@@ -315,12 +315,14 @@ def test_document_field():
     attrs = {
         'get_definitions_and_schema.return_value': ({}, expected_schema),
         'get_definition_id.return_value': 'document.Document',
+        'is_recursive.return_value': False,
     }
     document_cls_mock.configure_mock(**attrs)
 
     f = fields.DocumentField(document_cls_mock)
     definitions, schema = f.get_definitions_and_schema()
     assert schema == expected_schema
+    assert not definitions
 
     definitions, schema = f.get_definitions_and_schema(ref_documents=set([document_cls_mock]))
     assert s(schema) == {'$ref': '#/definitions/document.Document'}
@@ -329,6 +331,19 @@ def test_document_field():
     definitions, schema = f.get_definitions_and_schema()
     assert definitions == {'document.Document': expected_schema}
     assert s(schema) == {'$ref': '#/definitions/document.Document'}
+
+    attrs = {
+        'get_definitions_and_schema.return_value': ({}, expected_schema),
+        'get_definition_id.return_value': 'document.Document',
+        'is_recursive.return_value': True,
+    }
+    document_cls_mock.reset_mock()
+    document_cls_mock.configure_mock(**attrs)
+
+    f = fields.DocumentField(document_cls_mock, as_ref=True)
+    definitions, schema = f.get_definitions_and_schema()
+    assert schema == expected_schema
+    assert not definitions
 
 
 def test_recursive_document_field():

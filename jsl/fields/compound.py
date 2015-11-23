@@ -527,7 +527,7 @@ class DocumentField(BaseField):
                 new_role = role
             document_definitions, document_schema = document_cls.get_definitions_and_schema(
                 role=new_role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
-            if self.as_ref:
+            if self.as_ref and not document_cls.is_recursive(role=new_role):
                 document_definitions[definition_id] = document_schema
                 return document_definitions, res_scope.create_ref(definition_id)
             else:
