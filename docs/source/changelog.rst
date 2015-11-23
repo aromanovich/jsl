@@ -1,13 +1,19 @@
 Changelog
 =========
 
+0.2.1 2015-11-23
+~~~~~~~~~~~~~~~~
+
+- Fix a bug when referencing a recursive document using :class:`.DocumentField` with ``as_ref=True``
+  produced circular references (issue `#16`_).
+
 0.2.0 2015-11-08
 ~~~~~~~~~~~~~~~~
 
 - Minor breaking change for the issue `#15`_: :meth:`.Document.resolve_and_iter_fields`
   now iterates only over fields that are attached as attributes
-  (fields specified in document ``Options`` won't be processed),
-  and yields tuples of (field name, field).
+  (fields specified in document ``Options`` as ``pattern_properties`` or
+  ``additional_properties`` won't be processed), and yields tuples of (field name, field).
 
 0.1.5: 2015-10-22
 ~~~~~~~~~~~~~~~~~
@@ -79,3 +85,4 @@ Changelog
 .. _id: http://tools.ietf.org/html/draft-zyp-json-schema-04#section-7.2
 .. _#14: https://github.com/aromanovich/jsl/issues/14
 .. _#15: https://github.com/aromanovich/jsl/issues/15
+.. _#16: https://github.com/aromanovich/jsl/issues/16
