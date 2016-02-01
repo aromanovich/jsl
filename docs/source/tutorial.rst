@@ -40,6 +40,10 @@ It encourages the decomposition of large schemas into smaller readable pieces
 and makes schemas extendable using class inheritance. It enables the autocomplete
 feature or IDEs and makes any mistype in a JSON schema keyword cause a RuntimeError.
 
+Since every JSON schema object is itself valid JSON, the ``json`` module in
+the Python standard library can be used for printing and serialization of
+a generated schema.
+
 .. links
 
 .. _Python implementation: https://python-jsonschema.readthedocs.org/en/latest/
