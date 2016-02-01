@@ -15,7 +15,7 @@ for validation and documentation.
 
 JSL is a Python library that provides a DSL for describing JSON schemas.
 
-Why inventing a DSL?
+Why invent a DSL?
 
 * A JSON schema in terms of the Python language is a dictionary. A JSON schema
   of a more or less complex data structure is a dictionary which most likely
