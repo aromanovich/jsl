@@ -6,7 +6,7 @@ from .exceptions import processing, DocumentStep
 from .fields import BaseField, DocumentField, DictField
 from .roles import DEFAULT_ROLE, Var, Scope, all_, construct_matcher, Resolvable, Resolution
 from .resolutionscope import ResolutionScope, EMPTY_SCOPE
-from ._compat import iteritems, iterkeys, itervalues, with_metaclass, OrderedDict, Prepareable
+from ._compat import iteritems, iterkeys, with_metaclass, OrderedDict, Prepareable
 
 
 def _set_owner_to_document_fields(cls):
@@ -15,11 +15,19 @@ def _set_owner_to_document_fields(cls):
             field.owner_cls = cls
 
 
-ALL_OF = 'all_of'
-"""All-of inheritance mode"""
+# INHERITANCE CONSTANTS AND MAPPING
 
-INLINE = 'inline'
-"""Inline (default) inheritance mode"""
+INLINE = 'inline'  # default inheritance mode
+ALL_OF = 'all_of'
+ANY_OF = 'any_of'
+ONE_OF = 'one_of'
+
+_INHERITANCE_MODES = {
+    INLINE: 'allOf',  # used in the case that an inline class inherits from document bases
+    ALL_OF: 'allOf',
+    ANY_OF: 'anyOf',
+    ONE_OF: 'oneOf'
+}
 
 
 class Options(object):
@@ -41,7 +49,8 @@ class Options(object):
         documents.
     :type roles_to_propagate: callable, string or iterable
     :param str inheritance_mode:
-        An :ref:`inheritance mode <inheritance>`: :data:`INLINE` (default) or :data:`ALL_OF`
+        An :ref:`inheritance mode <inheritance>`: one of :data:`INLINE` (default),
+        :data:`ALL_OF`, :data:`ANY_OF`, or :data:`ONE_OF`
 
         .. versionadded:: 0.1.4
     """
@@ -66,10 +75,14 @@ class Options(object):
         self.schema_uri = schema_uri
         self.definition_id = definition_id
         self.roles_to_propagate = construct_matcher(roles_to_propagate or all_)
-        if inheritance_mode not in (ALL_OF, INLINE):
+        if inheritance_mode not in _INHERITANCE_MODES:
             raise ValueError(
                 'Unknown inheritance mode: {0!r}. '
-                'Must be one of the following: {1!r}'.format(inheritance_mode, [INLINE, ALL_OF]))
+                'Must be one of the following: {1!r}'.format(
+                    inheritance_mode,
+                    sorted([m for m in _INHERITANCE_MODES])
+                )
+            )
         self.inheritance_mode = inheritance_mode
 
 
@@ -110,7 +123,7 @@ class DocumentMeta(with_metaclass(Prepareable, type)):
             for base in bases:
                 if issubclass(base, Document) and base is not Document:
                     parent_documents.update(base._parent_documents)
-        elif options.inheritance_mode == ALL_OF:
+        else:
             fields = mcs.collect_fields([], attrs)
             parent_documents = [base for base in bases
                                 if issubclass(base, Document) and base is not Document]
@@ -312,7 +325,7 @@ class Document(with_metaclass(DocumentMeta)):
         :returns: iterable of :class:`.BaseField`
         """
         fields = cls._backend.walk(through_document_fields=through_document_fields,
-                                 visited_documents=visited_documents)
+                                   visited_documents=visited_documents)
         next(fields)  # we don't want to yield _field itself
         return fields
 
@@ -379,16 +392,17 @@ class Document(with_metaclass(DocumentMeta)):
                 role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
 
         if cls._parent_documents:
-            all_of = []
+            mode = _INHERITANCE_MODES[cls._options.inheritance_mode]
+            contents = []
             for parent_document in cls._parent_documents:
                 parent_definitions, parent_schema = parent_document.get_definitions_and_schema(
                     role=role, res_scope=res_scope, ordered=ordered, ref_documents=ref_documents)
                 parent_definition_id = parent_document.get_definition_id()
                 definitions.update(parent_definitions)
                 definitions[parent_definition_id] = parent_schema
-                all_of.append(res_scope.create_ref(parent_definition_id))
-            all_of.append(schema)
-            schema = {'allOf': all_of}
+                contents.append(res_scope.create_ref(parent_definition_id))
+            contents.append(schema)
+            schema = {mode: contents}
 
         if is_recursive:
             definition_id = cls.get_definition_id()

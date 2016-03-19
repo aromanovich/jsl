@@ -7,7 +7,7 @@ from jsl.fields.base import NullSentinel
 from jsl.document import Document
 from jsl._compat import OrderedDict
 
-from util import s
+from util import normalize
 
 
 def test_null_sentinel():
@@ -58,7 +58,7 @@ def test_base_schema_field():
 def test_string_field():
     f = fields.StringField()
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {'type': 'string'}
+    assert normalize(schema) == {'type': 'string'}
 
     f = fields.StringField(min_length=1, max_length=10, pattern='^test$',
                            enum=('a', 'b', 'c'), title='Pururum')
@@ -72,10 +72,10 @@ def test_string_field():
         ('maxLength', 10),
     ]
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == dict(expected_items)
+    assert normalize(schema) == dict(expected_items)
     definitions, ordered_schema = f.get_definitions_and_schema(ordered=True)
     assert isinstance(ordered_schema, OrderedDict)
-    assert s(ordered_schema) == OrderedDict(expected_items)
+    assert normalize(ordered_schema) == OrderedDict(expected_items)
 
     with pytest.raises(ValueError) as e:
         fields.StringField(pattern='(')
@@ -85,28 +85,28 @@ def test_string_field():
 def test_string_derived_fields():
     f = fields.EmailField()
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'string',
         'format': 'email',
     }
 
     f = fields.IPv4Field()
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'string',
         'format': 'ipv4',
     }
 
     f = fields.DateTimeField()
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'string',
         'format': 'date-time',
     }
 
     f = fields.UriField()
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'string',
         'format': 'uri',
     }
@@ -115,7 +115,7 @@ def test_string_derived_fields():
 def test_number_and_int_fields():
     f = fields.NumberField(multiple_of=10)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'number',
         'multipleOf': 10,
     }
@@ -123,7 +123,7 @@ def test_number_and_int_fields():
     f = fields.NumberField(minimum=0, maximum=10,
                            exclusive_minimum=True, exclusive_maximum=True)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'number',
         'exclusiveMinimum': True,
         'exclusiveMaximum': True,
@@ -133,14 +133,14 @@ def test_number_and_int_fields():
 
     f = fields.NumberField(enum=(1, 2, 3))
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'number',
         'enum': [1, 2, 3],
     }
 
     f = fields.IntField()
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'integer',
     }
 
@@ -151,7 +151,7 @@ def test_array_field_to_schema():
 
     f = fields.ArrayField(s_f)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'array',
         'items': s_f.get_schema(),
     }
@@ -170,14 +170,14 @@ def test_array_field_to_schema():
                           min_items=0, max_items=10, unique_items=True,
                           additional_items=d_f)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == dict(expected_items)
+    assert normalize(schema) == dict(expected_items)
     definitions, ordered_schema = f.get_definitions_and_schema(ordered=True)
     assert isinstance(ordered_schema, OrderedDict)
-    assert s(ordered_schema) == OrderedDict(expected_items)
+    assert normalize(ordered_schema) == OrderedDict(expected_items)
 
     f = fields.ArrayField(s_f, additional_items=True)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'array',
         'items': s_f.get_schema(),
         'additionalItems': True,
@@ -185,7 +185,7 @@ def test_array_field_to_schema():
 
     f = fields.ArrayField(s_f, additional_items=d_f)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'array',
         'items': s_f.get_schema(),
         'additionalItems': d_f.get_schema(),
@@ -195,7 +195,7 @@ def test_array_field_to_schema():
     a_f = fields.ArrayField(fields.StringField())
     f = fields.ArrayField([n_f, a_f])
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'array',
         'items': [n_f.get_schema(), a_f.get_schema()],
     }
@@ -221,7 +221,7 @@ def test_array_field_walk():
 def test_dict_field_to_schema():
     f = fields.DictField(title='Hey!', enum=[{'x': 1}, {'y': 2}])
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'object',
         'enum': [
             {'x': 1},
@@ -240,7 +240,7 @@ def test_dict_field_to_schema():
         'c*': c_field_mock,
     }, min_properties=5, max_properties=10)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'type': 'object',
         'properties': {
             'a': a_field_mock.get_schema(),
@@ -257,7 +257,7 @@ def test_dict_field_to_schema():
         (fields.StringField(), fields.NumberField()))
     f = fields.DictField(additional_properties=additional_prop_field_mock)
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == s({
+    assert normalize(schema) == normalize({
         'type': 'object',
         'additionalProperties': additional_prop_field_mock.get_schema(),
     })
@@ -272,7 +272,7 @@ def test_dict_field_to_schema():
         'c*': fields.StringField(name='C', required=True),
     })
     definitions, schema = f.get_definitions_and_schema()
-    assert s(schema) == s({
+    assert normalize(schema) == normalize({
         'type': 'object',
         'properties': {
             'a': {'type': 'string'},
@@ -325,12 +325,12 @@ def test_document_field():
     assert not definitions
 
     definitions, schema = f.get_definitions_and_schema(ref_documents=set([document_cls_mock]))
-    assert s(schema) == {'$ref': '#/definitions/document.Document'}
+    assert normalize(schema) == {'$ref': '#/definitions/document.Document'}
 
     f = fields.DocumentField(document_cls_mock, as_ref=True)
     definitions, schema = f.get_definitions_and_schema()
     assert definitions == {'document.Document': expected_schema}
-    assert s(schema) == {'$ref': '#/definitions/document.Document'}
+    assert normalize(schema) == {'$ref': '#/definitions/document.Document'}
 
     attrs = {
         'get_definitions_and_schema.return_value': ({}, expected_schema),
@@ -376,7 +376,7 @@ def test_recursive_document_field():
         },
         '$ref': '#/definitions/test_fields.Tree',
     }
-    assert s(Tree.get_schema()) == s(expected_schema)
+    assert normalize(Tree.get_schema()) == normalize(expected_schema)
 
 
 def test_of_fields():
@@ -387,19 +387,19 @@ def test_of_fields():
 
     f = fields.OneOfField(of_fields)
     _, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'oneOf': [f.get_schema() for f in of_fields]
     }
 
     f = fields.AnyOfField(of_fields)
     _, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'anyOf': [f.get_schema() for f in of_fields]
     }
 
     f = fields.AllOfField(of_fields)
     _, schema = f.get_definitions_and_schema()
-    assert s(schema) == {
+    assert normalize(schema) == {
         'allOf': [f.get_schema() for f in of_fields]
     }
 
@@ -410,12 +410,12 @@ def test_not_field():
         'description': 'Not a string.',
         'not': {'type': 'string'},
     }
-    assert s(f.get_schema()) == expected_schema
+    assert normalize(f.get_schema()) == expected_schema
 
 
 def test_null_field():
     f = fields.NullField()
-    assert s(f.get_schema()) == {'type': 'null'}
+    assert normalize(f.get_schema()) == {'type': 'null'}
 
 
 def test_ref_field():
