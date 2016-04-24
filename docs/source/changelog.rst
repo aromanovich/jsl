@@ -1,10 +1,11 @@
 Changelog
 =========
 
-Unreleased
-----------
+0.2.3 2016-04-24
+----------------
 
-- Introduction of two new inheritance modes, oneOf and anyOf, by Steven Seguin.
+- Introduction of two new :ref:`inheritance modes <inheritance>`, ``oneOf`` and ``anyOf``,
+  by Steven Seguin (issue `#22`_).
 
 0.2.2 2016-02-06
 ----------------
@@ -97,3 +98,5 @@ Unreleased
 .. _#14: https://github.com/aromanovich/jsl/issues/14
 .. _#15: https://github.com/aromanovich/jsl/issues/15
 .. _#16: https://github.com/aromanovich/jsl/issues/16
+.. _#17: https://github.com/aromanovich/jsl/issues/17
+.. _#22: https://github.com/aromanovich/jsl/issues/22

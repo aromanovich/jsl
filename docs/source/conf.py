@@ -19,7 +19,7 @@ source_suffix = '.rst'
 master_doc = 'index'
 
 project = u'JSL'
-copyright = u'2015, Anton Romanovich'
+copyright = u'2016, Anton Romanovich'
 version = jsl.__version__
 release = jsl.__version__
 
