@@ -15,16 +15,41 @@ def test_inheritance_mode_inline():
     class Parent(Child):
         class Options(object):
             inheritance_mode = INLINE
+
         parent_attr = IntField()
 
     expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
+        'type': 'object',
+        'properties': {
+            'child_attr': {'type': 'integer'},
+            'parent_attr': {'type': 'integer'}
+        },
         'additionalProperties': False,
-        'properties': {'child_attr': {'type': 'integer'},
-                       'parent_attr': {'type': 'integer'}},
-        'type': 'object'
     }
     actual_schema = Parent.get_schema()
+    assert normalize(actual_schema) == normalize(expected_schema)
+
+    class A(Document):
+        a = IntField()
+
+    class B(A):
+        b = IntField()
+
+    class C(B):
+        c = IntField()
+
+    expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'type': 'object',
+        'properties': {
+            'a': {'type': 'integer'},
+            'b': {'type': 'integer'},
+            'c': {'type': 'integer'},
+        },
+        'additionalProperties': False,
+    }
+    actual_schema = C.get_schema()
     assert normalize(actual_schema) == normalize(expected_schema)
 
 
@@ -32,25 +57,35 @@ def test_inheritance_mode_all_of():
     class Child(Document):
         class Options(object):
             definition_id = 'child'
+
         child_attr = IntField()
 
     class Parent(Child):
         class Options(object):
             inheritance_mode = ALL_OF
+
         parent_attr = IntField()
 
     expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'allOf': [
             {'$ref': '#/definitions/child'},
-            {'additionalProperties': False,
-             'properties': {'parent_attr': {'type': 'integer'}},
-             'type': 'object'}
+            {
+                'type': 'object',
+                'properties': {
+                    'parent_attr': {'type': 'integer'}
+                },
+                'additionalProperties': False,
+            }
         ],
         'definitions': {
-            'child': {'additionalProperties': False,
-                      'properties': {'child_attr': {'type': 'integer'}},
-                      'type': 'object'}
+            'child': {
+                'type': 'object',
+                'properties': {
+                    'child_attr': {'type': 'integer'}
+                },
+                'additionalProperties': False,
+            }
         }
     }
     actual_schema = Parent.get_schema()
@@ -61,25 +96,35 @@ def test_inheritance_mode_any_of():
     class Child(Document):
         class Options(object):
             definition_id = 'child'
+
         child_attr = IntField()
 
     class Parent(Child):
         class Options(object):
             inheritance_mode = ANY_OF
+
         parent_attr = IntField()
 
     expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'anyOf': [
             {'$ref': '#/definitions/child'},
-            {'additionalProperties': False,
-             'properties': {'parent_attr': {'type': 'integer'}},
-             'type': 'object'}
+            {
+                'type': 'object',
+                'properties': {
+                    'parent_attr': {'type': 'integer'}
+                },
+                'additionalProperties': False,
+            }
         ],
         'definitions': {
-            'child': {'additionalProperties': False,
-                      'properties': {'child_attr': {'type': 'integer'}},
-                      'type': 'object'}
+            'child': {
+                'type': 'object',
+                'properties': {
+                    'child_attr': {'type': 'integer'}
+                },
+                'additionalProperties': False,
+            }
         }
     }
     actual_schema = Parent.get_schema()
@@ -90,25 +135,35 @@ def test_inheritance_mode_one_of():
     class Child(Document):
         class Options(object):
             definition_id = 'child'
+
         child_attr = IntField()
 
     class Parent(Child):
         class Options(object):
             inheritance_mode = ONE_OF
+
         parent_attr = IntField()
 
     expected_schema = {
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'oneOf': [
             {'$ref': '#/definitions/child'},
-            {'additionalProperties': False,
-             'properties': {'parent_attr': {'type': 'integer'}},
-             'type': 'object'}
+            {
+                'type': 'object',
+                'properties': {
+                    'parent_attr': {'type': 'integer'}
+                },
+                'additionalProperties': False,
+            }
         ],
         'definitions': {
-            'child': {'additionalProperties': False,
-                      'properties': {'child_attr': {'type': 'integer'}},
-                      'type': 'object'}
+            'child': {
+                'type': 'object',
+                'properties': {
+                    'child_attr': {'type': 'integer'}
+                },
+                'additionalProperties': False,
+            }
         }
     }
     actual_schema = Parent.get_schema()
@@ -119,18 +174,21 @@ def test_multiple_inheritance():
     class IntChild(Document):
         class Options(object):
             definition_id = 'int_child'
+
         foo = IntField()
         bar = IntField()
 
     class StringChild(Document):
         class Options(object):
             definition_id = 'string_child'
+
         foo = StringField()
         bar = StringField()
 
     class Parent(IntChild, StringChild):
         class Options(object):
             inheritance_mode = ONE_OF
+
         foo = BooleanField()
         bar = BooleanField()
 
@@ -140,30 +198,30 @@ def test_multiple_inheritance():
             {'$ref': '#/definitions/int_child'},
             {'$ref': '#/definitions/string_child'},
             {
-                'additionalProperties': False,
+                'type': 'object',
                 'properties': {
                     'foo': {'type': 'boolean'},
                     'bar': {'type': 'boolean'}
                 },
-                'type': 'object'
+                'additionalProperties': False,
             }
         ],
         'definitions': {
             'int_child': {
-                'additionalProperties': False,
+                'type': 'object',
                 'properties': {
                     'foo': {'type': 'integer'},
                     'bar': {'type': 'integer'}
                 },
-                'type': 'object'
+                'additionalProperties': False,
             },
             'string_child': {
-                'additionalProperties': False,
+                'type': 'object',
                 'properties': {
                     'foo': {'type': 'string'},
                     'bar': {'type': 'string'}
                 },
-                'type': 'object'
+                'additionalProperties': False,
             }
         }
     }
@@ -317,40 +375,32 @@ def test_nested_inheritance_inline_parent():
         c = DocumentField(RECURSIVE_REFERENCE_CONSTANT)
 
     expected_schema = {
-        "definitions": {
-            "base": {
-                "type": "object",
-                "title": "Base",
-                "properties": {
-                    "a": {
-                        "type": "string"
-                    }
+        'definitions': {
+            'base': {
+                'type': 'object',
+                'title': 'Base',
+                'properties': {
+                    'a': {'type': 'string'},
                 },
-                "additionalProperties": False,
+                'additionalProperties': False,
             },
-            "child": {
-                "allOf": [
+            'child': {
+                'allOf': [
+                    {'$ref': '#/definitions/base'},
                     {
-                        "$ref": "#/definitions/base"
-                    },
-                    {
-                        "type": "object",
-                        "title": "Child",
-                        "properties": {
-                            "c": {
-                                "$ref": "#/definitions/child"
-                            },
-                            "b": {
-                                "type": "string"
-                            }
+                        'type': 'object',
+                        'title': 'Child',
+                        'properties': {
+                            'c': {'$ref': '#/definitions/child'},
+                            'b': {'type': 'string'}
                         },
-                        "additionalProperties": False,
+                        'additionalProperties': False,
                     }
                 ]
             }
         },
-        "$schema": "http://json-schema.org/draft-04/schema#",
-        "$ref": "#/definitions/child"
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        '$ref': '#/definitions/child'
     }
     schema = Child.get_schema()
     assert normalize(schema) == normalize(expected_schema)
