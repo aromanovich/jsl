@@ -1,13 +1,188 @@
 # coding: utf-8
 import pytest
 
-from jsl import NumberField, IntField, RECURSIVE_REFERENCE_CONSTANT, DocumentField
-from jsl.document import Document, ALL_OF, INLINE
-from jsl.fields import StringField
-from util import s
+from jsl import (
+    NumberField, IntField, DocumentField, StringField, BooleanField,
+    Document, ALL_OF, INLINE, ANY_OF, ONE_OF, RECURSIVE_REFERENCE_CONSTANT
+)
+from util import normalize
 
 
-def test_inheritance_1():
+def test_inheritance_mode_inline():
+    class Child(Document):
+        child_attr = IntField()
+
+    class Parent(Child):
+        class Options(object):
+            inheritance_mode = INLINE
+        parent_attr = IntField()
+
+    expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'additionalProperties': False,
+        'properties': {'child_attr': {'type': 'integer'},
+                       'parent_attr': {'type': 'integer'}},
+        'type': 'object'
+    }
+    actual_schema = Parent.get_schema()
+    assert normalize(actual_schema) == normalize(expected_schema)
+
+
+def test_inheritance_mode_all_of():
+    class Child(Document):
+        class Options(object):
+            definition_id = 'child'
+        child_attr = IntField()
+
+    class Parent(Child):
+        class Options(object):
+            inheritance_mode = ALL_OF
+        parent_attr = IntField()
+
+    expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'allOf': [
+            {'$ref': '#/definitions/child'},
+            {'additionalProperties': False,
+             'properties': {'parent_attr': {'type': 'integer'}},
+             'type': 'object'}
+        ],
+        'definitions': {
+            'child': {'additionalProperties': False,
+                      'properties': {'child_attr': {'type': 'integer'}},
+                      'type': 'object'}
+        }
+    }
+    actual_schema = Parent.get_schema()
+    assert normalize(actual_schema) == normalize(expected_schema)
+
+
+def test_inheritance_mode_any_of():
+    class Child(Document):
+        class Options(object):
+            definition_id = 'child'
+        child_attr = IntField()
+
+    class Parent(Child):
+        class Options(object):
+            inheritance_mode = ANY_OF
+        parent_attr = IntField()
+
+    expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'anyOf': [
+            {'$ref': '#/definitions/child'},
+            {'additionalProperties': False,
+             'properties': {'parent_attr': {'type': 'integer'}},
+             'type': 'object'}
+        ],
+        'definitions': {
+            'child': {'additionalProperties': False,
+                      'properties': {'child_attr': {'type': 'integer'}},
+                      'type': 'object'}
+        }
+    }
+    actual_schema = Parent.get_schema()
+    assert normalize(actual_schema) == normalize(expected_schema)
+
+
+def test_inheritance_mode_one_of():
+    class Child(Document):
+        class Options(object):
+            definition_id = 'child'
+        child_attr = IntField()
+
+    class Parent(Child):
+        class Options(object):
+            inheritance_mode = ONE_OF
+        parent_attr = IntField()
+
+    expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'oneOf': [
+            {'$ref': '#/definitions/child'},
+            {'additionalProperties': False,
+             'properties': {'parent_attr': {'type': 'integer'}},
+             'type': 'object'}
+        ],
+        'definitions': {
+            'child': {'additionalProperties': False,
+                      'properties': {'child_attr': {'type': 'integer'}},
+                      'type': 'object'}
+        }
+    }
+    actual_schema = Parent.get_schema()
+    assert normalize(actual_schema) == normalize(expected_schema)
+
+
+def test_multiple_inheritance():
+    class IntChild(Document):
+        class Options(object):
+            definition_id = 'int_child'
+        foo = IntField()
+        bar = IntField()
+
+    class StringChild(Document):
+        class Options(object):
+            definition_id = 'string_child'
+        foo = StringField()
+        bar = StringField()
+
+    class Parent(IntChild, StringChild):
+        class Options(object):
+            inheritance_mode = ONE_OF
+        foo = BooleanField()
+        bar = BooleanField()
+
+    expected_schema = {
+        '$schema': 'http://json-schema.org/draft-04/schema#',
+        'oneOf': [
+            {'$ref': '#/definitions/int_child'},
+            {'$ref': '#/definitions/string_child'},
+            {
+                'additionalProperties': False,
+                'properties': {
+                    'foo': {'type': 'boolean'},
+                    'bar': {'type': 'boolean'}
+                },
+                'type': 'object'
+            }
+        ],
+        'definitions': {
+            'int_child': {
+                'additionalProperties': False,
+                'properties': {
+                    'foo': {'type': 'integer'},
+                    'bar': {'type': 'integer'}
+                },
+                'type': 'object'
+            },
+            'string_child': {
+                'additionalProperties': False,
+                'properties': {
+                    'foo': {'type': 'string'},
+                    'bar': {'type': 'string'}
+                },
+                'type': 'object'
+            }
+        }
+    }
+    actual_schema = Parent.get_schema()
+    assert normalize(actual_schema) == normalize(expected_schema)
+
+
+def test_invalid_inheritance_mode():
+    with pytest.raises(ValueError) as e:
+        class Error(Document):
+            class Options(object):
+                inheritance_mode = 'lapapam'
+    assert str(e.value) == (
+        "Unknown inheritance mode: 'lapapam'. "
+        "Must be one of the following: ['all_of', 'any_of', 'inline', 'one_of']"
+    )
+
+
+def test_nested_inheritance_all_of_parent():
     class Base(Document):
         class Options(object):
             inheritance_mode = ALL_OF
@@ -121,17 +296,10 @@ def test_inheritance_1():
         },
     }
     schema = CircularSegment.get_schema()
-    assert s(schema) == s(expected_schema)
-
-    with pytest.raises(ValueError) as e:
-        class Error(Document):
-            class Options(object):
-                inheritance_mode = 'lapapam'
-    assert str(e.value) == ("Unknown inheritance mode: 'lapapam'. "
-                            "Must be one of the following: ['inline', 'all_of']")
+    assert normalize(schema) == normalize(expected_schema)
 
 
-def test_inheritance_2():
+def test_nested_inheritance_inline_parent():
     class Base(Document):
         class Options(object):
             inheritance_mode = ALL_OF
@@ -185,4 +353,4 @@ def test_inheritance_2():
         "$ref": "#/definitions/child"
     }
     schema = Child.get_schema()
-    assert s(schema) == s(expected_schema)
+    assert normalize(schema) == normalize(expected_schema)

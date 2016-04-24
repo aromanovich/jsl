@@ -16,7 +16,7 @@ __version__ = '0.2.2'
 __version_info__ = tuple(int(i) for i in __version__.split('.'))
 
 
-from .document import Document, ALL_OF, INLINE
+from .document import Document, ALL_OF, INLINE, ANY_OF, ONE_OF
 from .fields import *
 from .roles import *
 from .exceptions import SchemaGenerationException

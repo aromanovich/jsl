@@ -8,6 +8,10 @@ Document
 
 .. autodata:: ALL_OF
 
+.. autodata:: ANY_OF
+
+.. autodata:: ONE_OF
+
 .. autodata:: INLINE
 
 .. autoclass:: Options

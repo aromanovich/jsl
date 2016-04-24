@@ -331,13 +331,14 @@ Now ``User.get_schema(ordered=True, role=DB_ROLE)`` returns the following schema
 
 Document Inheritance
 --------------------
-There are two inheritance modes available in JSL: **inline** and **all-of**.
+There are four inheritance modes available in JSL: **inline**, **all-of**, **any-of**, and **one-of**.
 
 In the inline mode (used by default), a schema of the child document contains a copy
 of its parent's fields.
 
-In the all-of mode a schema of the child document is an allOf validator that contains references
-to all parent schemas along with the schema that defines the child's fields.
+In the the other three modes a schema of the child document is a validator of the type allOf, anyOf,
+or oneOf that contains references to all parent schemas along with the schema that defines the
+child's fields.
 
 The inheritance mode can be set using the ``inheritance_mode`` document :class:`option <.Options>`.
 

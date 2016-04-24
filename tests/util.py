@@ -20,7 +20,7 @@ def sort_required_keys(schema):
                     sort_required_keys(v)
 
 
-def s(schema):
+def normalize(schema):
     jsonschema.Draft4Validator.check_schema(schema)
     sort_required_keys(schema)
     return schema

@@ -1,6 +1,17 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+- Introduction of two new inheritance modes, oneOf and anyOf, by Steven Seguin.
+
+0.2.2 2016-02-06
+----------------
+
+- Documentation fixes by mulhern <amulhern@redhat.com> (issue `#17`_).
+
+
 0.2.1 2015-11-23
 ~~~~~~~~~~~~~~~~
 

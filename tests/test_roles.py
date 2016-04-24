@@ -8,7 +8,7 @@ from jsl import (Document, BaseSchemaField, StringField, ArrayField,
 from jsl.roles import Var, Scope, not_, Resolution
 from jsl.exceptions import SchemaGenerationException
 
-from util import s, sort_required_keys
+from util import normalize, sort_required_keys
 
 
 def test_var():
@@ -218,10 +218,10 @@ def test_base_field():
 def test_string_field():
     _ = lambda value: Var({'role_1': value})
     field = StringField(format=_('date-time'), min_length=_(1), max_length=_(2))
-    assert s(field.get_schema()) == s({
+    assert normalize(field.get_schema()) == normalize({
         'type': 'string'
     })
-    assert s(field.get_schema(role='role_1')) == s({
+    assert normalize(field.get_schema(role='role_1')) == normalize({
         'type': 'string',
         'format': 'date-time',
         'minLength': 1,
@@ -240,22 +240,22 @@ def test_array_field():
         'role_1': s_f,
         'role_2': n_f,
     }))
-    schema = s(field.get_schema(role='role_1'))
-    assert s(schema['items']) == s_f.get_schema()
+    schema = normalize(field.get_schema(role='role_1'))
+    assert normalize(schema['items']) == s_f.get_schema()
 
-    schema = s(field.get_schema(role='role_2'))
+    schema = normalize(field.get_schema(role='role_2'))
     assert schema['items'] == n_f.get_schema()
 
-    schema = s(field.get_schema())
+    schema = normalize(field.get_schema())
     assert 'items' not in schema
 
     _ = lambda value: Var({'role_1': value})
     field = ArrayField(s_f, min_items=_(1), max_items=_(2), unique_items=_(True), additional_items=_(True))
-    assert s(field.get_schema()) == s({
+    assert normalize(field.get_schema()) == normalize({
         'type': 'array',
         'items': s_f.get_schema(),
     })
-    assert field.get_schema(role='role_1') == s({
+    assert field.get_schema(role='role_1') == normalize({
         'type': 'array',
         'items': s_f.get_schema(),
         'minItems': 1,
@@ -281,10 +281,10 @@ def test_dict_field():
         },
         propagate='role_1'
     ), additional_properties=_(s_f), min_properties=_(1), max_properties=_(2))
-    assert s(field.get_schema()) == s({
+    assert normalize(field.get_schema()) == normalize({
         'type': 'object'
     })
-    assert s(field.get_schema(role='role_1')) == s({
+    assert normalize(field.get_schema(role='role_1')) == normalize({
         'type': 'object',
         'properties': {
             'name': s_f.get_schema(),
@@ -296,7 +296,7 @@ def test_dict_field():
         'minProperties': 1,
         'maxProperties': 2,
     })
-    assert s(field.get_schema(role='role_2')) == s({
+    assert normalize(field.get_schema(role='role_2')) == normalize({
         'type': 'object',
         'properties': {},
         'patternProperties': {},
@@ -310,13 +310,13 @@ def test_keyword_of_fields(keyword, field_cls):
     n_f = NumberField()
     i_f = IntField()
     field = field_cls([n_f, Var({'role_1': s_f}), Var({'role_2': i_f})])
-    assert s(field.get_schema()) == {
+    assert normalize(field.get_schema()) == {
         keyword: [n_f.get_schema()]
     }
-    assert s(field.get_schema(role='role_1')) == {
+    assert normalize(field.get_schema(role='role_1')) == {
         keyword: [n_f.get_schema(), s_f.get_schema()]
     }
-    assert s(field.get_schema(role='role_2')) == {
+    assert normalize(field.get_schema(role='role_2')) == {
         keyword: [n_f.get_schema(), i_f.get_schema()]
     }
 
@@ -324,7 +324,7 @@ def test_keyword_of_fields(keyword, field_cls):
         'role_1': [n_f, Var({'role_1': s_f}), Var({'role_2': i_f})],
         'role_2': [Var({'role_2': i_f})],
     }, propagate='role_1'))
-    assert s(field.get_schema(role='role_1')) == {
+    assert normalize(field.get_schema(role='role_1')) == {
         keyword: [n_f.get_schema(), s_f.get_schema()]
     }
     with pytest.raises(SchemaGenerationException):
@@ -334,7 +334,7 @@ def test_keyword_of_fields(keyword, field_cls):
 def test_not_field():
     s_f = StringField()
     field = NotField(Var({'role_1': s_f}))
-    assert s(field.get_schema(role='role_1')) == {'not': s_f.get_schema()}
+    assert normalize(field.get_schema(role='role_1')) == {'not': s_f.get_schema()}
 
 
 def test_document_field():
@@ -389,7 +389,7 @@ def test_basics():
         created_at = DateTimeField(required=True)
         author = Var({'response': DocumentField(User)})
 
-    assert s(Task.get_schema()) == s({
+    assert normalize(Task.get_schema()) == normalize({
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'additionalProperties': False,
         'description': 'A task.',
@@ -404,7 +404,7 @@ def test_basics():
         'type': 'object'
     })
 
-    assert s(Task.get_schema(role='response')) == s({
+    assert normalize(Task.get_schema(role='response')) == normalize({
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'title': 'Task',
         'description': 'A task.',

@@ -8,7 +8,7 @@ from jsl.fields import (
     DateTimeField, ArrayField, OneOfField)
 from jsl._compat import OrderedDict, iterkeys
 
-from util import s
+from util import normalize
 
 
 def test_to_schema():
@@ -53,7 +53,7 @@ def test_to_schema():
             'author': Task.author.get_schema(),
         }
     }
-    assert s(Task.get_schema()) == expected_task_schema
+    assert normalize(Task.get_schema()) == expected_task_schema
 
 
 def test_document_options():
@@ -159,7 +159,7 @@ def test_recursive_definitions_1():
     }
     schema = A.get_schema(ordered=True)
     assert isinstance(schema, OrderedDict)
-    assert s(schema) == s(expected_schema)
+    assert normalize(schema) == normalize(expected_schema)
     assert list(iterkeys(schema)) == ['id', '$schema', 'definitions', '$ref']
 
     # let's make sure that all the references in resulting schema
@@ -237,7 +237,7 @@ def test_recursive_definitions_2():
         '$ref': '#/definitions/test_document.A',
     }
     schema = A.get_schema()
-    assert s(schema) == s(expected_schema)
+    assert normalize(schema) == normalize(expected_schema)
 
     # let's make sure that all the references in resulting schema
     # can be resolved
@@ -302,7 +302,7 @@ def test_recursive_definitions_3():
             }
         },
     }
-    assert s(Main.get_schema()) == s(expected_schema)
+    assert normalize(Main.get_schema()) == normalize(expected_schema)
 
 
 def test_recursive_definitions_4():
@@ -345,7 +345,7 @@ def test_recursive_definitions_4():
         'definitions': expected_definitions,
         '$ref': '#/definitions/test_document.Main',
     }
-    assert s(Main.get_schema()) == s(expected_schema)
+    assert normalize(Main.get_schema()) == normalize(expected_schema)
 
     class X(Document):
         name = StringField()
@@ -374,7 +374,7 @@ def test_recursive_definitions_4():
             }
         },
     }
-    assert s(Z.get_schema()) == s(expected_schema)
+    assert normalize(Z.get_schema()) == normalize(expected_schema)
 
 
 def test_recursive_definitions_5():
@@ -385,7 +385,7 @@ def test_recursive_definitions_5():
         with Scope('test') as test:
             test.field = DocumentField(RECURSIVE_REFERENCE_CONSTANT)
 
-    assert s(Test.get_schema(role='test')) == s({
+    assert normalize(Test.get_schema(role='test')) == normalize({
         '$schema': 'http://json-schema.org/draft-04/schema#',
         '$ref': '#/definitions/test',
         'definitions': {
@@ -416,7 +416,7 @@ def test_recursive_definitions_6():
             definition_id = 'a'
         derived_from = DocumentField(Children, as_ref=True)
 
-    assert s(A.get_schema()) == s({
+    assert normalize(A.get_schema()) == normalize({
         '$schema': 'http://json-schema.org/draft-04/schema#',
         'definitions': {
             'a': {
