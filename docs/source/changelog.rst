@@ -1,6 +1,11 @@
 Changelog
 =========
 
+0.2.4 2016-05-11
+~~~~~~~~~~~~~~~~
+
+- Subschema definitions are now sorted when ``ordered=True`` (issue `#24`_).
+
 0.2.3 2016-04-24
 ~~~~~~~~~~~~~~~~
 
@@ -99,3 +104,4 @@ Changelog
 .. _#16: https://github.com/aromanovich/jsl/issues/16
 .. _#17: https://github.com/aromanovich/jsl/issues/17
 .. _#22: https://github.com/aromanovich/jsl/issues/22
+.. _#24: https://github.com/aromanovich/jsl/issues/24
