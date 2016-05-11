@@ -409,6 +409,9 @@ class Document(with_metaclass(DocumentMeta)):
             definitions[definition_id] = schema
             schema = res_scope.create_ref(definition_id)
 
+        if ordered:
+            definitions = OrderedDict(sorted(definitions.items()))
+
         return definitions, schema
 
 

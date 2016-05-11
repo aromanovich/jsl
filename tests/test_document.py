@@ -162,6 +162,10 @@ def test_recursive_definitions_1():
     assert normalize(schema) == normalize(expected_schema)
     assert list(iterkeys(schema)) == ['id', '$schema', 'definitions', '$ref']
 
+    definitions = schema['definitions']
+    assert isinstance(definitions, OrderedDict)
+    assert definitions.keys() == ['test_document.A', 'test_document.B', 'test_document.C']
+
     # let's make sure that all the references in resulting schema
     # can be resolved
     jsonschema.validate({
