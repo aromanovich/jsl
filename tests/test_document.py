@@ -164,7 +164,7 @@ def test_recursive_definitions_1():
 
     definitions = schema['definitions']
     assert isinstance(definitions, OrderedDict)
-    assert definitions.keys() == ['test_document.A', 'test_document.B', 'test_document.C']
+    assert list(definitions.keys()) == ['test_document.A', 'test_document.B', 'test_document.C']
 
     # let's make sure that all the references in resulting schema
     # can be resolved
