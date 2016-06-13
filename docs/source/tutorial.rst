@@ -46,7 +46,7 @@ a generated schema.
 
 .. links
 
-.. _Python implementation: https://python-jsonschema.readthedocs.org/en/latest/
+.. _Python implementation: https://python-jsonschema.readthedocs.io/en/latest/
 .. _JSON Schema: http://json-schema.org/
 
 Quick Example
