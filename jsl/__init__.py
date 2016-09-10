@@ -3,7 +3,7 @@
 JSL
 ===
 A Python DSL for describing JSON schemas.
-See http://jsl.rtfd.org/ for documentation.
+See https://jsl.readthedocs.io/ for documentation.
 :copyright: (c) 2016 Anton Romanovich
 :license: BSD
 """

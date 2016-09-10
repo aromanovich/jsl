@@ -34,7 +34,7 @@ setup(
     license='BSD',
     author='Anton Romanovich',
     author_email='anthony.romanovich@gmail.com',
-    url='https://jsl.readthedocs.org',
+    url='https://jsl.readthedocs.io',
     packages=find_packages(exclude=['tests']),
     classifiers=[
         'Development Status :: 4 - Beta',
