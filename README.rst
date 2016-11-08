@@ -28,7 +28,7 @@ JSL is a Python DSL for defining JSON Schemas.
 Example
 -------
 
-::
+.. code:: python
 
     import jsl
 
@@ -46,7 +46,7 @@ Example
 
 ``Directory.get_schema(ordered=True)`` will return the following JSON schema:
 
-::
+.. code:: json
 
     {
         "$schema": "http://json-schema.org/draft-04/schema#",
