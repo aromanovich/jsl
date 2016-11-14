@@ -17,10 +17,6 @@ JSL
     :target: https://pypi.python.org/pypi/jsl
     :alt: PyPI Version
 
-.. image:: http://img.shields.io/pypi/dm/jsl.svg
-    :target: https://pypi.python.org/pypi/jsl
-    :alt: PyPI Downloads
-
 Documentation_ | GitHub_ |  PyPI_
 
 JSL is a Python DSL for defining JSON Schemas.
